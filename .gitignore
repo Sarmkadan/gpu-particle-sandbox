@@ -1,0 +1,27 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rtifacts/
+
+# .NET
+*.user
+*.suo
+project.lock.json
+project.fragment.lock.json
+.vs/
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Misc local scratch
+*.log
+/scratch/
