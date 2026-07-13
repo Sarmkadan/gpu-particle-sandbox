@@ -1,0 +1,65 @@
+#version 430 core
+
+// One work-item per particle. 256 keeps us aligned on most desktop GPUs.
+layout(local_size_x = 256) in;
+
+struct Particle
+{
+    vec2 position;
+    vec2 velocity;
+    float life;   // seconds remaining
+    float _pad0;
+    float _pad1;
+    float _pad2;  // std430 pads the struct to 32 bytes so C# layout matches
+};
+
+layout(std430, binding = 0) buffer Particles
+{
+    Particle particles[];
+};
+
+uniform float uDeltaTime;
+uniform vec2  uGravityWell;   // point the particles are pulled toward
+uniform float uWellStrength;
+uniform uint  uCount;
+
+// cheap hash so respawned particles don't all sit on top of each other
+float hash(uint x)
+{
+    x = (x ^ 61u) ^ (x >> 16u);
+    x *= 9u;
+    x = x ^ (x >> 4u);
+    x *= 0x27d4eb2du;
+    x = x ^ (x >> 15u);
+    return float(x & 0x00ffffffu) / float(0x01000000);
+}
+
+void main()
+{
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= uCount)
+        return;
+
+    Particle p = particles[i];
+
+    vec2 toWell = uGravityWell - p.position;
+    float dist2 = max(dot(toWell, toWell), 0.0005);
+    vec2 accel = normalize(toWell) * (uWellStrength / dist2);
+
+    p.velocity += accel * uDeltaTime;
+    p.velocity *= 0.995; // mild drag so the system doesn't blow up
+    p.position += p.velocity * uDeltaTime;
+    p.life     -= uDeltaTime;
+
+    // respawn dead particles near the edges
+    if (p.life <= 0.0)
+    {
+        float a = hash(i * 3u + 1u) * 6.2831853;
+        float r = 0.8 + hash(i * 7u + 5u) * 0.2;
+        p.position = vec2(cos(a), sin(a)) * r;
+        p.velocity = vec2(0.0);
+        p.life     = 1.5 + hash(i) * 2.5;
+    }
+
+    particles[i] = p;
+}
