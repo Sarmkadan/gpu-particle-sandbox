@@ -43,13 +43,13 @@ public static class ParticleSystemJsonExtensions
     /// Deserializes a JSON string to a <see cref="ParticleSystem"/> instance.
     /// </summary>
     /// <param name="json">The JSON string to deserialize.</param>
-    /// <returns>A deserialized particle system, or null if the JSON is null.</returns>
+    /// <returns>The deserialized particle system, or <see langword="null"/> if the JSON is <see langword="null"/> or empty.</returns>
     /// <exception cref="JsonException">Thrown when the JSON is invalid or cannot be deserialized.</exception>
     public static ParticleSystem? FromJson(string json)
     {
-        ArgumentException.ThrowIfNullOrEmpty(json);
-
-        return JsonSerializer.Deserialize<ParticleSystem>(json, _jsonOptions);
+        return string.IsNullOrEmpty(json)
+            ? null
+            : JsonSerializer.Deserialize<ParticleSystem>(json, _jsonOptions);
     }
 
     /// <summary>
@@ -60,7 +60,12 @@ public static class ParticleSystemJsonExtensions
     /// <returns>True if deserialization succeeded; otherwise, false.</returns>
     public static bool TryFromJson(string json, out ParticleSystem? value)
     {
-        ArgumentException.ThrowIfNullOrEmpty(json);
+        value = null;
+
+        if (string.IsNullOrEmpty(json))
+        {
+            return true;
+        }
 
         try
         {
@@ -69,7 +74,6 @@ public static class ParticleSystemJsonExtensions
         }
         catch (JsonException)
         {
-            value = null;
             return false;
         }
     }
