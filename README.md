@@ -89,6 +89,33 @@ if (particleSystem.SafeDispose())
 }
 ```
 
+## ShaderProgram
+
+`ShaderProgram` is a lightweight wrapper around an OpenGL shader program that manages program linking, uniform location caching, and resource cleanup. It supports both traditional vertex+fragment pipelines and standalone compute shaders, providing a simple API for setting uniforms and activating the program.
+
+Example usage:
+```csharp
+// Create a vertex-fragment shader program from files
+var renderShader = ShaderProgram.FromVertexFragment(
+    "Shaders/particles.vert",
+    "Shaders/particles.frag"
+);
+
+// Create a compute shader program
+var computeShader = ShaderProgram.FromCompute("Shaders/particles.comp");
+
+// Activate the shader before setting uniforms or rendering
+renderShader.Use();
+
+// Set uniform values
+renderShader.SetFloat("pointSize", 3.0f);
+renderShader.SetUInt("maxParticles", 100000u);
+renderShader.SetVector2("gravityWell", new Vector2(mouseX, mouseY));
+
+// When done with the shader, dispose it to free GPU resources
+computeShader.Dispose();
+```
+
 ## ShaderProgramExtensions
 
 Extension methods for `ShaderProgram` that simplify common shader uniform operations. These methods provide type-safe ways to set uniform values including float arrays, uint arrays, Vector2 arrays, individual Vector3 values, Matrix4 values, and int values, with proper null checking and uniform existence validation.
