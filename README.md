@@ -89,6 +89,37 @@ if (particleSystem.SafeDispose())
 }
 ```
 
+## ShaderProgramExtensions
+
+Extension methods for `ShaderProgram` that simplify common shader uniform operations. These methods provide type-safe ways to set uniform values including float arrays, uint arrays, Vector2 arrays, individual Vector3 values, Matrix4 values, and int values, with proper null checking and uniform existence validation.
+
+Example usage:
+```csharp
+// Create shader program
+var shader = new ShaderProgram("particles.vert", "particles.frag");
+
+// Set individual uniform values
+shader.SetInt("pointSize", 3);
+shader.SetVector3("gravityWell", new Vector3(0, -9.8f, 0));
+shader.SetMatrix4("viewProjection", cameraViewMatrix * cameraProjectionMatrix);
+
+// Set uniform arrays
+float[] particleLifetimes = new float[100000];
+shader.SetFloatArray("particleLifetimes", particleLifetimes);
+
+uint[] particleIds = Enumerable.Range(0, 100000).Select(i => (uint)i).ToArray();
+shader.SetUIntArray("particleIds", particleIds);
+
+Vector2[] offsets = new Vector2[100];
+shader.SetVector2Array("offsets", offsets);
+
+// Check if a uniform exists before setting
+if (shader.HasUniform("particleCount"))
+{
+shader.SetInt("particleCount", 100000);
+}
+```
+
 ## License
 
 Do whatever. It's a toy.
