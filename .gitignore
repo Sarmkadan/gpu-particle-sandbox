@@ -25,3 +25,6 @@ Thumbs.db
 # Misc local scratch
 *.log
 /scratch/
+TestResults/
+BenchmarkDotNet.Artifacts/
+.aider*
