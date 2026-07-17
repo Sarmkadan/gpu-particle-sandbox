@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
@@ -71,6 +72,7 @@ public static class ParticleSystemExtensions
     /// </summary>
     /// <param name="system">The particle system instance.</param>
     /// <returns><see langword="true"/> if the system was disposed by this call; <see langword="false"/> if it was already disposed or is <see langword="null"/></returns>
+    /// <exception cref="ArgumentNullException"><paramref name="system"/> is <see langword="null"/></exception>
     public static bool SafeDispose(this ParticleSystem? system)
     {
         if (system is null)
@@ -96,6 +98,7 @@ public static class ParticleSystemExtensions
     /// <param name="system">The particle system instance.</param>
     /// <returns>The estimated memory usage in bytes, or 0 if the system is disposed.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="system"/> is <see langword="null"/></exception>
+    /// <exception cref="InvalidOperationException">Thrown if the particle count cannot be determined.</exception>
     public static long GetMemoryUsage(this ParticleSystem system)
     {
         ArgumentNullException.ThrowIfNull(system);
@@ -111,6 +114,7 @@ public static class ParticleSystemExtensions
     /// <param name="system">The particle system instance.</param>
     /// <returns>The number of particles.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="system"/> is <see langword="null"/></exception>
+    /// <exception cref="InvalidOperationException">Thrown if the particle count field cannot be accessed.</exception>
     public static int GetParticleCount(this ParticleSystem system)
     {
         ArgumentNullException.ThrowIfNull(system);
@@ -118,7 +122,10 @@ public static class ParticleSystemExtensions
         // Access the private field via reflection as a last resort
         // This is safe because we're in the same assembly
         var countField = typeof(ParticleSystem).GetField("_count",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        return (int)countField?.GetValue(system)!;
+            BindingFlags.NonPublic | BindingFlags.Instance);
+
+        return countField is null
+            ? throw new InvalidOperationException("Particle count field not found in ParticleSystem.")
+            : (int)countField.GetValue(system)!;
     }
 }
