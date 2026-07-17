@@ -1,0 +1,14 @@
+
+## Notes
+
+* **Uniform type matching** – The extension methods perform a runtime check that the uniform’s declared type in the shader matches the method being called. Supplying a mismatched type results in an `InvalidOperationException`. Use `HasUniform` to guard against accidental typos.
+
+* **Array length** – When uploading arrays, the length of the supplied span must not exceed the size declared in the shader. Excess elements are ignored; fewer elements will leave the remaining array entries unchanged.
+
+* **Thread‑safety** – `ShaderProgram` instances are not thread‑safe. Calls to any of the extension methods must be serialized, typically by confining all OpenGL calls to the rendering thread.
+
+* **Performance** – The methods use `GL.Uniform*` calls directly. For large arrays, consider using `GL.Uniform*` with pointer overloads or buffer objects to minimise driver overhead.
+
+* **Null checks** – All extensions validate that `program` and `name` are non‑null and throw `ArgumentNullException` early, mirroring the defensive checks introduced in recent commits.
+
+* **Span usage** – The overloads accept `ReadOnlySpan<T>` to avoid unnecessary allocations. When the source data is an array, the compiler will create a span without copying; for stack‑allocated data, `stackalloc` can be used as shown in the examples.
