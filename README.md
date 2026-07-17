@@ -62,6 +62,33 @@ Leaving these here mostly so I remember where I stopped:
 - [ ] Some kind of scene/config file so it's not all constants in C#
 - [ ] An OpenCL backend was the original plan - never touched it
 
+## ParticleSystemExtensions
+
+Extension methods for `ParticleSystem` that provide safe resource management and performance monitoring utilities. These methods wrap common operations like updating the particle simulation, rendering, and resource cleanup with proper error handling and memory tracking.
+
+Example usage:
+```csharp
+// Create and initialize particle system
+var particleSystem = new ParticleSystem();
+particleSystem.SetGravityWell(new Vector3(0, 0, 0));
+
+// Update simulation in fixed timestep
+particleSystem.UpdateFixed(1.0f / 60.0f);
+
+// Render particles
+particleSystem.Render(cameraViewMatrix, cameraProjectionMatrix);
+
+// Check memory usage
+long memoryUsed = particleSystem.GetMemoryUsage();
+Console.WriteLine($"Particles using {memoryUsed} bytes");
+
+// Cleanup when done
+if (particleSystem.SafeDispose())
+{
+    Console.WriteLine("Resources safely disposed");
+}
+```
+
 ## License
 
 Do whatever. It's a toy.
