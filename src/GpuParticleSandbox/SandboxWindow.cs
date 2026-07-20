@@ -18,6 +18,7 @@ public sealed class SandboxWindow : GameWindow
     private Vector2 _well = Vector2.Zero;
     private bool _isPaused = false;
     private float _simulationSpeed = 1.0f;
+    private int _colorMode = 0;
 
     public SandboxWindow()
         : base(
@@ -43,6 +44,9 @@ public sealed class SandboxWindow : GameWindow
 
         string shaderDir = Path.Combine(AppContext.BaseDirectory, "Shaders");
         _particles = new ParticleSystem(ParticleCount, shaderDir);
+
+        // Load default preset on startup
+        LoadPreset("presets.json");
     }
 
     protected override void OnUpdateFrame(FrameEventArgs args)
@@ -60,6 +64,24 @@ public sealed class SandboxWindow : GameWindow
             _simulationSpeed = Math.Clamp(_simulationSpeed + 0.1f, 0.1f, 5.0f);
         else if (kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Minus) || kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.KeyPadSubtract))
             _simulationSpeed = Math.Clamp(_simulationSpeed - 0.1f, 0.1f, 5.0f);
+
+        // Color mode cycling
+        if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.C))
+        {
+            _colorMode = (_colorMode + 1) % 3;
+        }
+
+        // Save preset (F5)
+        if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.F5))
+        {
+            SavePreset("presets.json");
+        }
+
+        // Load preset (F9)
+        if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.F9))
+        {
+            LoadPreset("presets.json");
+        }
 
         // map pixel-space mouse to clip space [-1, 1]
         float x = (MouseState.X / ClientSize.X) * 2f - 1f;
@@ -87,6 +109,34 @@ public sealed class SandboxWindow : GameWindow
     {
         base.OnResize(e);
         GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
+    }
+
+    private void SavePreset(string filePath)
+    {
+        var preset = ParticlePreset.FromSystem(
+            ParticleCount,
+            _colorMode,
+            _particles.Shape,
+            Vector2.Zero, // emitter params
+            _simulationSpeed,
+            0.15f, // well strength
+            0.0f,  // well radius
+            _isPaused
+        );
+
+        ParticlePreset.Save(preset, Path.Combine(AppContext.BaseDirectory, filePath));
+        Console.WriteLine($"Preset saved to {filePath}");
+    }
+
+    private void LoadPreset(string filePath)
+    {
+        var preset = ParticlePreset.Load(Path.Combine(AppContext.BaseDirectory, filePath));
+
+        _colorMode = preset.ColorMode;
+        _simulationSpeed = preset.SimulationSpeed;
+        _isPaused = preset.IsPaused;
+
+        Console.WriteLine($"Preset loaded from {filePath}");
     }
 
     protected override void OnUnload()
