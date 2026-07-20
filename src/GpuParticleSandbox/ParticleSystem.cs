@@ -66,18 +66,36 @@ public sealed class ParticleSystem : IDisposable
 
     public void Update(float deltaTime, Vector2 gravityWell, float wellStrength)
     {
+        Update(deltaTime, new[] { (gravityWell, wellStrength) });
+    }
+
+    public void Update(float deltaTime, IReadOnlyList<(Vector2 pos, float strength)> wells)
+    {
         _compute.Use();
         _compute.SetFloat("uDeltaTime", deltaTime);
-        _compute.SetVector2("uGravityWell", gravityWell);
-        _compute.SetFloat("uWellStrength", wellStrength);
         _compute.SetUInt("uCount", (uint)_count);
+        _compute.SetUInt("uWellCount", (uint)wells.Count);
+
+        // Upload well data to a UBO
+        int ubo = GL.GenBuffer();
+        GL.BindBuffer(BufferTarget.UniformBuffer, ubo);
+        var wellData = new Vector3[wells.Count];
+        for (int i = 0; i < wells.Count; i++)
+        {
+            wellData[i] = new Vector3(wells[i].pos.X, wells[i].pos.Y, wells[i].strength);
+        }
+        GL.BufferData(BufferTarget.UniformBuffer, wells.Count * Vector3.SizeInBytes, wellData, BufferUsageHint.DynamicDraw);
+        GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 0, ubo);
 
         int groups = (_count + LocalSize - 1) / LocalSize;
         GL.DispatchCompute(groups, 1, 1);
 
+        // Clean up
+        GL.DeleteBuffer(ubo);
+
         // make the compute writes visible to the subsequent vertex fetch
         GL.MemoryBarrier(MemoryBarrierFlags.ShaderStorageBarrierBit
-                         | MemoryBarrierFlags.VertexAttribArrayBarrierBit);
+        | MemoryBarrierFlags.VertexAttribArrayBarrierBit);
     }
 
     public void Render()
