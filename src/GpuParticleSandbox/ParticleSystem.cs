@@ -12,16 +12,26 @@ public sealed class ParticleSystem : IDisposable
 {
     private const int LocalSize = 256; // must match layout(local_size_x) in the .comp
 
+    public enum EmitterShape
+    {
+        Point,
+        Circle,
+        Line,
+        Ring
+    }
+
     private readonly int _count;
     private readonly int _ssbo;
     private readonly int _vao;
+    private readonly EmitterShape _shape;
 
     private readonly ShaderProgram _compute;
     private readonly ShaderProgram _render;
 
-    public ParticleSystem(int count, string shaderDir)
+    public ParticleSystem(int count, string shaderDir, EmitterShape shape = EmitterShape.Point)
     {
         _count = count;
+        _shape = shape;
 
         _compute = ShaderProgram.FromCompute(Path.Combine(shaderDir, "particles.comp"));
         _render = ShaderProgram.FromVertexFragment(
@@ -44,24 +54,78 @@ public sealed class ParticleSystem : IDisposable
         _vao = GL.GenVertexArray();
     }
 
-    private static Particle[] CreateSeed(int count)
+    public EmitterShape Shape => _shape;
+
+    private Particle[] CreateSeed(int count)
     {
         var rng = new Random(1337);
         var particles = new Particle[count];
         for (int i = 0; i < count; i++)
         {
-            double angle = rng.NextDouble() * Math.PI * 2.0;
-            float radius = 0.2f + (float)rng.NextDouble() * 0.6f;
-            particles[i] = new Particle
-            {
-                Position = new Vector2(
-                    (float)Math.Cos(angle) * radius,
-                    (float)Math.Sin(angle) * radius),
-                Velocity = Vector2.Zero,
-                Life = 0.5f + (float)rng.NextDouble() * 3.5f,
-            };
+            particles[i] = CreateParticle(rng, count, i);
         }
         return particles;
+    }
+
+    private Particle CreateParticle(Random rng, int count, int index)
+    {
+        float t = index / (float)count;
+        switch (_shape)
+        {
+            case EmitterShape.Point:
+                return new Particle
+                {
+                    Position = Vector2.Zero,
+                    Velocity = Vector2.Zero,
+                    Life = 0.5f + (float)rng.NextDouble() * 3.5f,
+                };
+
+            case EmitterShape.Circle:
+                {
+                    double angle = rng.NextDouble() * Math.PI * 2.0;
+                    float radius = (float)rng.NextDouble();
+                    return new Particle
+                    {
+                        Position = new Vector2(
+                            (float)Math.Cos(angle) * radius,
+                            (float)Math.Sin(angle) * radius),
+                        Velocity = Vector2.Zero,
+                        Life = 0.5f + (float)rng.NextDouble() * 3.5f,
+                    };
+                }
+
+            case EmitterShape.Line:
+                {
+                    float x = (float)rng.NextDouble() * 2.0f - 1.0f;
+                    return new Particle
+                    {
+                        Position = new Vector2(x, 0.0f),
+                        Velocity = Vector2.Zero,
+                        Life = 0.5f + (float)rng.NextDouble() * 3.5f,
+                    };
+                }
+
+            case EmitterShape.Ring:
+                {
+                    double angle = rng.NextDouble() * Math.PI * 2.0;
+                    return new Particle
+                    {
+                        Position = new Vector2(
+                            (float)Math.Cos(angle),
+                            (float)Math.Sin(angle)),
+                        Velocity = Vector2.Zero,
+                        Life = 0.5f + (float)rng.NextDouble() * 3.5f,
+                    };
+                }
+
+            default:
+                return new Particle
+                {
+                    Position = Vector2.Zero,
+                    Velocity = Vector2.Zero,
+                    Life = 0.5f + (float)rng.NextDouble() * 3.5f,
+                };
+        }
     }
 
     public void Update(float deltaTime, Vector2 gravityWell, float wellStrength)
