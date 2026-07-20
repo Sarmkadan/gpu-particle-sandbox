@@ -62,6 +62,25 @@ Leaving these here mostly so I remember where I stopped:
 - [ ] Some kind of scene/config file so it's not all constants in C#
 - [ ] An OpenCL backend was the original plan - never touched it
 
+## ParticleSystem
+
+`ParticleSystem` handles the GPU-accelerated particle simulation lifecycle, managing the Shader Storage Buffer Object (SSBO) and driving both the compute shader integration and the vertex shader rendering process. It ensures data remains in VRAM after initialization for maximum efficiency.
+
+Example usage:
+```csharp
+// Initialize the system
+var particleSystem = new ParticleSystem(100000, "Shaders");
+
+// Update simulation with a gravity well
+particleSystem.Update(0.016f, new Vector2(0.5f, 0.5f), 10.0f);
+
+// Render the particles
+particleSystem.Render();
+
+// Cleanup resources
+particleSystem.Dispose();
+```
+
 ## ParticleSystemExtensions
 
 Extension methods for `ParticleSystem` that provide safe resource management and performance monitoring utilities. These methods wrap common operations like updating the particle simulation, rendering, and resource cleanup with proper error handling and memory tracking.
