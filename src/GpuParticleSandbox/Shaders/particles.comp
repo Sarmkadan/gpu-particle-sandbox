@@ -16,7 +16,7 @@ struct GravityWell
 {
     vec2 position;
     float strength;
-    float _pad0; // padding to align to vec4
+    float radius;
 };
 
 layout(std430, binding = 0) buffer Particles
@@ -55,12 +55,19 @@ void main()
     vec2 accel = vec2(0.0);
 
     // Apply all gravity wells
-    for (uint w = 0u; w < uWellCount; w++)
-    {
-        vec2 toWell = wells[w].position - p.position;
-        float dist2 = max(dot(toWell, toWell), 0.0005);
-        accel += normalize(toWell) * (wells[w].strength / dist2);
-    }
+for (uint w = 0u; w < uWellCount; w++)
+{
+    vec2 toWell = wells[w].position - p.position;
+    float dist = length(toWell);
+
+    // Apply inverse-square law with radius-based falloff
+    // If radius > 0, attraction starts at radius distance
+    // Otherwise, use standard inverse-square law with minimum distance
+    float effectiveDist = max(dist, wells[w].radius);
+    float invDist2 = 1.0 / (effectiveDist * effectiveDist);
+
+    accel += normalize(toWell) * (wells[w].strength * invDist2);
+}
 
     p.velocity += accel * uDeltaTime;
     p.velocity *= 0.995; // mild drag so the system doesn't blow up

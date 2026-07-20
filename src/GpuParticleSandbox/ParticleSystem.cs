@@ -1,5 +1,8 @@
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace GpuParticleSandbox;
 
@@ -18,6 +21,26 @@ public sealed class ParticleSystem : IDisposable
         Circle,
         Line,
         Ring
+    }
+
+    /// <summary>
+    /// Gravity well definition for CPU-side simulation.
+    /// Position: world coordinates
+    /// Strength: attraction force multiplier
+    /// Radius: distance at which attraction starts (inverse-square law)
+    /// </summary>
+    public readonly struct GravityWell
+    {
+        public readonly Vector2 Position;
+        public readonly float Strength;
+        public readonly float Radius;
+
+        public GravityWell(Vector2 position, float strength, float radius = 0.0f)
+        {
+            Position = position;
+            Strength = strength;
+            Radius = radius;
+        }
     }
 
     private readonly int _count;
@@ -128,12 +151,80 @@ public sealed class ParticleSystem : IDisposable
         }
     }
 
-    public void Update(float deltaTime, Vector2 gravityWell, float wellStrength)
+    public void Update(float deltaTime, Vector2 gravityWell, float wellStrength, float wellRadius = 0.0f)
     {
-        Update(deltaTime, new[] { (gravityWell, wellStrength) });
+        Update(deltaTime, new[] { new GravityWell(gravityWell, wellStrength, wellRadius) });
     }
 
-    public void Update(float deltaTime, IReadOnlyList<(Vector2 pos, float strength)> wells)
+    public void UpdateCpu(float deltaTime, IReadOnlyList<GravityWell> wells)
+    {
+        if (wells.Count == 0)
+            return;
+
+        // Create a copy of the particle data from GPU
+        Particle[] particles = new Particle[_count];
+        GL.BindBuffer(BufferTarget.ShaderStorageBuffer, _ssbo);
+        IntPtr ptr = GL.MapBuffer(BufferTarget.ShaderStorageBuffer, BufferAccess.ReadWrite);
+        unsafe
+        {
+            Particle* particlePtr = (Particle*)ptr;
+            for (int i = 0; i < _count; i++)
+            {
+                particles[i] = particlePtr[i];
+            }
+        }
+        GL.UnmapBuffer(BufferTarget.ShaderStorageBuffer);
+
+        // Apply gravity well forces on CPU
+        for (int i = 0; i < _count; i++)
+        {
+            Vector2 pos = particles[i].Position;
+            Vector2 vel = particles[i].Velocity;
+
+            foreach (var well in wells)
+            {
+                Vector2 toWell = well.Position - pos;
+                float distSq = toWell.LengthSquared;
+
+                if (distSq > 0.0001f) // Avoid division by zero
+                {
+                    float dist = MathF.Sqrt(distSq);
+                    float radius = MathF.Max(well.Radius, 0.01f); // Clamp radius to avoid division issues
+
+                    // Apply inverse-square law attraction, clamped at min distance
+                    if (dist > radius)
+                    {
+                        float force = well.Strength / distSq;
+                        vel += toWell.Normalized() * force * deltaTime;
+                    }
+                    else if (dist > 0.0001f)
+                    {
+                        // Clamped attraction when within radius
+                        float t = dist / radius;
+                        float force = well.Strength / (radius * radius) * t; // Linear interpolation from radius to center
+                        vel += toWell.Normalized() * force * deltaTime;
+                    }
+                }
+
+                particles[i].Velocity = vel;
+                particles[i].Position += vel * deltaTime;
+            }
+        }
+
+        // Upload updated particles back to GPU
+        GL.BindBuffer(BufferTarget.ShaderStorageBuffer, _ssbo);
+        unsafe
+        {
+            Particle* particlePtr = (Particle*)GL.MapBuffer(BufferTarget.ShaderStorageBuffer, BufferAccess.WriteOnly);
+            for (int i = 0; i < _count; i++)
+            {
+                particlePtr[i] = particles[i];
+            }
+            GL.UnmapBuffer(BufferTarget.ShaderStorageBuffer);
+        }
+    }
+
+    public void Update(float deltaTime, IReadOnlyList<GravityWell> wells)
     {
         _compute.Use();
         _compute.SetFloat("uDeltaTime", deltaTime);
@@ -143,12 +234,12 @@ public sealed class ParticleSystem : IDisposable
         // Upload well data to a UBO
         int ubo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.UniformBuffer, ubo);
-        var wellData = new Vector3[wells.Count];
+        var wellData = new Vector4[wells.Count];
         for (int i = 0; i < wells.Count; i++)
         {
-            wellData[i] = new Vector3(wells[i].pos.X, wells[i].pos.Y, wells[i].strength);
+            wellData[i] = new Vector4(wells[i].Position.X, wells[i].Position.Y, wells[i].Strength, wells[i].Radius);
         }
-        GL.BufferData(BufferTarget.UniformBuffer, wells.Count * Vector3.SizeInBytes, wellData, BufferUsageHint.DynamicDraw);
+        GL.BufferData(BufferTarget.UniformBuffer, wells.Count * Vector4.SizeInBytes, wellData, BufferUsageHint.DynamicDraw);
         GL.BindBufferBase(BufferRangeTarget.UniformBuffer, 0, ubo);
 
         int groups = (_count + LocalSize - 1) / LocalSize;
@@ -159,7 +250,7 @@ public sealed class ParticleSystem : IDisposable
 
         // make the compute writes visible to the subsequent vertex fetch
         GL.MemoryBarrier(MemoryBarrierFlags.ShaderStorageBarrierBit
-        | MemoryBarrierFlags.VertexAttribArrayBarrierBit);
+            | MemoryBarrierFlags.VertexAttribArrayBarrierBit);
     }
 
     public void Render()
