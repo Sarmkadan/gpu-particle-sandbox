@@ -16,6 +16,8 @@ public sealed class SandboxWindow : GameWindow
 
     private ParticleSystem _particles = null!;
     private Vector2 _well = Vector2.Zero;
+    private bool _isPaused = false;
+    private float _simulationSpeed = 1.0f;
 
     public SandboxWindow()
         : base(
@@ -47,8 +49,17 @@ public sealed class SandboxWindow : GameWindow
     {
         base.OnUpdateFrame(args);
 
-        if (KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape))
+        var kb = KeyboardState;
+        if (kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape))
             Close();
+
+        if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space))
+            _isPaused = !_isPaused;
+
+        if (kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Equal) || kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.KeyPadAdd))
+            _simulationSpeed = Math.Clamp(_simulationSpeed + 0.1f, 0.1f, 5.0f);
+        else if (kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Minus) || kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.KeyPadSubtract))
+            _simulationSpeed = Math.Clamp(_simulationSpeed - 0.1f, 0.1f, 5.0f);
 
         // map pixel-space mouse to clip space [-1, 1]
         float x = (MouseState.X / ClientSize.X) * 2f - 1f;
@@ -60,8 +71,11 @@ public sealed class SandboxWindow : GameWindow
     {
         base.OnRenderFrame(args);
 
-        float dt = (float)args.Time;
-        _particles.Update(dt, _well, wellStrength: 0.15f);
+        if (!_isPaused)
+        {
+            float dt = (float)args.Time * _simulationSpeed;
+            _particles.Update(dt, _well, wellStrength: 0.15f);
+        }
 
         GL.Clear(ClearBufferMask.ColorBufferBit);
         _particles.Render();
