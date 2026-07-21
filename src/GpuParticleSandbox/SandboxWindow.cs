@@ -17,6 +17,7 @@ public sealed class SandboxWindow : GameWindow
     private ParticleSystem _particles = null!;
     private Vector2 _well = Vector2.Zero;
     private bool _isPaused = false;
+private bool _singleStepQueued = false;
     private float _simulationSpeed = 1.0f;
     private int _colorMode = 0;
 
@@ -60,6 +61,9 @@ public sealed class SandboxWindow : GameWindow
         if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space))
             _isPaused = !_isPaused;
 
+if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Period))
+_singleStepQueued = true;
+
         if (kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Equal) || kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.KeyPadAdd))
             _simulationSpeed = Math.Clamp(_simulationSpeed + 0.1f, 0.1f, 5.0f);
         else if (kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Minus) || kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.KeyPadSubtract))
@@ -93,10 +97,12 @@ public sealed class SandboxWindow : GameWindow
     {
         base.OnRenderFrame(args);
 
-        if (!_isPaused)
+        if (!_isPaused || _singleStepQueued)
         {
             float dt = (float)args.Time * _simulationSpeed;
             _particles.Update(dt, _well, wellStrength: 0.15f);
+if (_singleStepQueued)
+_singleStepQueued = false;
         }
 
         GL.Clear(ClearBufferMask.ColorBufferBit);
