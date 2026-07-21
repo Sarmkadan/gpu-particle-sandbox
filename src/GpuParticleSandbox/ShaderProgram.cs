@@ -34,6 +34,7 @@ public sealed class ShaderProgram : IDisposable
     public void SetFloat(string name, float value) => GL.Uniform1(Location(name), value);
     public void SetUInt(string name, uint value) => GL.Uniform1(Location(name), value);
     public void SetVector2(string name, Vector2 value) => GL.Uniform2(Location(name), value);
+public void SetInt(string name, int value) => GL.Uniform1(Location(name), value);
 
     private int Location(string name)
     {

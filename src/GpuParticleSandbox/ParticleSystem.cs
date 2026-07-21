@@ -47,6 +47,7 @@ public sealed class ParticleSystem : IDisposable
     private readonly int _ssbo;
     private readonly int _vao;
     private readonly EmitterShape _shape;
+private int _colorMode = 0;
 
     private readonly ShaderProgram _compute;
     private readonly ShaderProgram _render;
@@ -78,6 +79,11 @@ public sealed class ParticleSystem : IDisposable
     }
 
     public EmitterShape Shape => _shape;
+
+public void SetColorMode(int colorMode)
+{
+    _colorMode = colorMode;
+}
 
     private Particle[] CreateSeed(int count)
     {
@@ -256,6 +262,7 @@ public sealed class ParticleSystem : IDisposable
     public void Render()
     {
         _render.Use();
+    _render.SetInt("uColorMode", _colorMode);
         GL.BindVertexArray(_vao);
         GL.DrawArrays(PrimitiveType.Points, 0, _count);
         GL.BindVertexArray(0);

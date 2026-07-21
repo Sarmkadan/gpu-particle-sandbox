@@ -16,12 +16,15 @@ layout(std430, binding = 0) buffer Particles
     Particle particles[];
 };
 
+in float vLife;
 out float vLife;
+out float vVelocityMagnitude;
 
 void main()
 {
     Particle p = particles[gl_VertexID];
     vLife = p.life;
+    vVelocityMagnitude = length(p.velocity);
     gl_Position = vec4(p.position, 0.0, 1.0);
     gl_PointSize = 2.0;
 }

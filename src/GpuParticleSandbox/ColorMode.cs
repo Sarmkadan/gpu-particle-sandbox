@@ -8,7 +8,7 @@ namespace GpuParticleSandbox
     public enum ColorMode
     {
         /// <summary>
-        /// Color based on the particle's velocity magnitude.
+        /// Color based on the particle's velocity magnitude (blue to red gradient).
         /// </summary>
         Velocity,
 
@@ -39,11 +39,24 @@ namespace GpuParticleSandbox
         {
             return mode switch
             {
-                ColorMode.Velocity => new Vector3(velocityMagnitude, 0f, 0f),
+                ColorMode.Velocity => MapVelocityToColor(velocityMagnitude),
                 ColorMode.Age => new Vector3(0f, age, 0f),
                 ColorMode.Uniform => Vector3.One,
                 _ => Vector3.Zero
             };
+        }
+
+        /// <summary>
+        /// Maps velocity magnitude to a blue-to-red gradient.
+        /// </summary>
+        /// <param name="velocityMagnitude">The velocity magnitude to map.</param>
+        /// <returns>A Vector3 representing the RGB color.</returns>
+        private static Vector3 MapVelocityToColor(float velocityMagnitude)
+        {
+            // Normalize velocity magnitude to [0, 1] range
+            // Blue (0, 0, 1) at low velocity, Red (1, 0, 0) at high velocity
+            float normalizedVelocity = Math.Clamp(velocityMagnitude, 0f, 1f);
+            return new Vector3(normalizedVelocity, 0f, 1f - normalizedVelocity);
         }
     }
 }

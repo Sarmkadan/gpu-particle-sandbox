@@ -73,6 +73,7 @@ _singleStepQueued = true;
         if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.C))
         {
             _colorMode = (_colorMode + 1) % 3;
+                _particles.SetColorMode(_colorMode);
         }
 
         // Save preset (F5)
@@ -119,6 +120,7 @@ _singleStepQueued = false;
 
     private void SavePreset(string filePath)
     {
+    _particles.SetColorMode(_colorMode);
         var preset = ParticlePreset.FromSystem(
             ParticleCount,
             _colorMode,
@@ -139,6 +141,7 @@ _singleStepQueued = false;
         var preset = ParticlePreset.Load(Path.Combine(AppContext.BaseDirectory, filePath));
 
         _colorMode = preset.ColorMode;
+    _particles.SetColorMode(_colorMode);
         _simulationSpeed = preset.SimulationSpeed;
         _isPaused = preset.IsPaused;
 
