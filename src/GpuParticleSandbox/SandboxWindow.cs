@@ -20,6 +20,7 @@ public sealed class SandboxWindow : GameWindow
 private bool _singleStepQueued = false;
     private float _simulationSpeed = 1.0f;
     private int _colorMode = 0;
+private FpsCounter _fpsCounter = new FpsCounter(0.1);
 
     public SandboxWindow()
         : base(
@@ -97,6 +98,7 @@ _singleStepQueued = true;
     protected override void OnRenderFrame(FrameEventArgs args)
     {
         base.OnRenderFrame(args);
+    _fpsCounter.Tick();
 
         if (!_isPaused || _singleStepQueued)
         {
@@ -106,6 +108,7 @@ if (_singleStepQueued)
 _singleStepQueued = false;
         }
 
+    Title = $"GPU Particle Sandbox - {_fpsCounter.GetDisplayString()}";
         GL.Clear(ClearBufferMask.ColorBufferBit);
         _particles.Render();
 
