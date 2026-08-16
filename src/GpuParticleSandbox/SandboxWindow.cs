@@ -1,7 +1,10 @@
+using System;
+using System.Collections.Generic;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace GpuParticleSandbox;
 
@@ -17,10 +20,14 @@ public sealed class SandboxWindow : GameWindow
     private ParticleSystem _particles = null!;
     private Vector2 _well = Vector2.Zero;
     private bool _isPaused = false;
-private bool _singleStepQueued = false;
+    private bool _singleStepQueued = false;
     private float _simulationSpeed = 1.0f;
     private int _colorMode = 0;
-private FpsCounter _fpsCounter = new FpsCounter(0.1);
+    private FpsCounter _fpsCounter = new FpsCounter(0.1);
+
+    // Input handling maps
+    private readonly Dictionary<Keys, Action> _keyPressActions = new();
+    private readonly Dictionary<Keys, Action> _keyDownActions = new();
 
     public SandboxWindow()
         : base(
@@ -33,6 +40,36 @@ private FpsCounter _fpsCounter = new FpsCounter(0.1);
                 Profile = ContextProfile.Core,
             })
     {
+        InitializeInputMaps();
+    }
+
+    /// <summary>
+    /// Sets up dictionaries that map keys to actions.
+    /// </summary>
+    private void InitializeInputMaps()
+    {
+        // Actions that should fire once per key press
+        _keyPressActions[Keys.Escape] = () => Close();
+
+        _keyPressActions[Keys.Space] = () => _isPaused = !_isPaused;
+
+        _keyPressActions[Keys.Period] = () => _singleStepQueued = true;
+
+        _keyPressActions[Keys.C] = () =>
+        {
+            _colorMode = (_colorMode + 1) % 3;
+            _particles.SetColorMode(_colorMode);
+        };
+
+        _keyPressActions[Keys.F5] = () => SavePreset("presets.json");
+
+        _keyPressActions[Keys.F9] = () => LoadPreset("presets.json");
+
+        // Actions that should fire while the key is held down
+        _keyDownActions[Keys.Equal] = () => _simulationSpeed = Math.Clamp(_simulationSpeed + 0.1f, 0.1f, 5.0f);
+        _keyDownActions[Keys.KeyPadAdd] = () => _simulationSpeed = Math.Clamp(_simulationSpeed + 0.1f, 0.1f, 5.0f);
+        _keyDownActions[Keys.Minus] = () => _simulationSpeed = Math.Clamp(_simulationSpeed - 0.1f, 0.1f, 5.0f);
+        _keyDownActions[Keys.KeyPadSubtract] = () => _simulationSpeed = Math.Clamp(_simulationSpeed - 0.1f, 0.1f, 5.0f);
     }
 
     protected override void OnLoad()
@@ -56,37 +93,19 @@ private FpsCounter _fpsCounter = new FpsCounter(0.1);
         base.OnUpdateFrame(args);
 
         var kb = KeyboardState;
-        if (kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape))
-            Close();
 
-        if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space))
-            _isPaused = !_isPaused;
-
-if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Period))
-_singleStepQueued = true;
-
-        if (kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Equal) || kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.KeyPadAdd))
-            _simulationSpeed = Math.Clamp(_simulationSpeed + 0.1f, 0.1f, 5.0f);
-        else if (kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Minus) || kb.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.KeyPadSubtract))
-            _simulationSpeed = Math.Clamp(_simulationSpeed - 0.1f, 0.1f, 5.0f);
-
-        // Color mode cycling
-        if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.C))
+        // Process key‑press actions (fires once per press)
+        foreach (var kvp in _keyPressActions)
         {
-            _colorMode = (_colorMode + 1) % 3;
-                _particles.SetColorMode(_colorMode);
+            if (kb.IsKeyPressed(kvp.Key))
+                kvp.Value();
         }
 
-        // Save preset (F5)
-        if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.F5))
+        // Process key‑down actions (fires while held)
+        foreach (var kvp in _keyDownActions)
         {
-            SavePreset("presets.json");
-        }
-
-        // Load preset (F9)
-        if (kb.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.F9))
-        {
-            LoadPreset("presets.json");
+            if (kb.IsKeyDown(kvp.Key))
+                kvp.Value();
         }
 
         // map pixel-space mouse to clip space [-1, 1]
@@ -98,17 +117,17 @@ _singleStepQueued = true;
     protected override void OnRenderFrame(FrameEventArgs args)
     {
         base.OnRenderFrame(args);
-    _fpsCounter.Tick();
+        _fpsCounter.Tick();
 
         if (!_isPaused || _singleStepQueued)
         {
             float dt = (float)args.Time * _simulationSpeed;
             _particles.Update(dt, _well, wellStrength: 0.15f);
-if (_singleStepQueued)
-_singleStepQueued = false;
+            if (_singleStepQueued)
+                _singleStepQueued = false;
         }
 
-    Title = $"GPU Particle Sandbox - {_fpsCounter.GetDisplayString()}";
+        Title = $"GPU Particle Sandbox - {_fpsCounter.GetDisplayString()}";
         GL.Clear(ClearBufferMask.ColorBufferBit);
         _particles.Render();
 
@@ -123,7 +142,7 @@ _singleStepQueued = false;
 
     private void SavePreset(string filePath)
     {
-    _particles.SetColorMode(_colorMode);
+        _particles.SetColorMode(_colorMode);
         var preset = ParticlePreset.FromSystem(
             ParticleCount,
             _colorMode,
@@ -144,7 +163,7 @@ _singleStepQueued = false;
         var preset = ParticlePreset.Load(Path.Combine(AppContext.BaseDirectory, filePath));
 
         _colorMode = preset.ColorMode;
-    _particles.SetColorMode(_colorMode);
+        _particles.SetColorMode(_colorMode);
         _simulationSpeed = preset.SimulationSpeed;
         _isPaused = preset.IsPaused;
 
