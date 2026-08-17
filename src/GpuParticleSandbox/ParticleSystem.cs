@@ -54,6 +54,8 @@ private int _colorMode = 0;
 
     public ParticleSystem(int count, string shaderDir, EmitterShape shape = EmitterShape.Point)
     {
+        ArgumentException.ThrowIfNullOrEmpty(shaderDir);
+
         _count = count;
         _shape = shape;
 
@@ -164,6 +166,8 @@ public void SetColorMode(int colorMode)
 
     public void UpdateCpu(float deltaTime, IReadOnlyList<GravityWell> wells)
     {
+        ArgumentNullException.ThrowIfNull(wells);
+
         if (wells.Count == 0)
             return;
 
@@ -232,6 +236,8 @@ public void SetColorMode(int colorMode)
 
     public void Update(float deltaTime, IReadOnlyList<GravityWell> wells)
     {
+        ArgumentNullException.ThrowIfNull(wells);
+
         _compute.Use();
         _compute.SetFloat("uDeltaTime", deltaTime);
         _compute.SetUInt("uCount", (uint)_count);
