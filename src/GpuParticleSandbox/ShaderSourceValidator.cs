@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace GpuParticleSandbox;
@@ -23,12 +24,13 @@ public static class ShaderSourceValidator
 		}
 
 		// Check for a #version directive
-		var lines = glslSource.Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+		var lines = glslSource.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 		bool hasVersion = false;
 		foreach (var line in lines)
 		{
 			var trimmed = line.TrimStart();
-			if (trimmed.StartsWith("#version"))
+			// Use ordinal comparison to avoid culture‑sensitive behavior
+			if (trimmed.StartsWith("#version", StringComparison.Ordinal))
 			{
 				hasVersion = true;
 				break;
@@ -39,8 +41,8 @@ public static class ShaderSourceValidator
 			errors.Add("Missing #version directive.");
 		}
 
-		// Check for a main() function
-		if (!glslSource.Contains("main("))
+		// Check for a main() function using ordinal comparison
+		if (!glslSource.Contains("main(", StringComparison.Ordinal))
 		{
 			errors.Add("Missing main() function.");
 		}
