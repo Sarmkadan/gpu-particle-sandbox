@@ -137,7 +137,13 @@ public sealed class SandboxWindow : GameWindow
     protected override void OnResize(ResizeEventArgs e)
     {
         base.OnResize(e);
-        GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
+
+        // Guard against zero‑size dimensions (e.g., when the window is minimized)
+        if (e.Width == 0 || e.Height == 0)
+            return;
+
+        // Update the OpenGL viewport to match the new window size
+        GL.Viewport(0, 0, e.Width, e.Height);
     }
 
     private void SavePreset(string filePath)
