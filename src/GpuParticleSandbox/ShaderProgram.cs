@@ -16,6 +16,7 @@ public sealed class ShaderProgram : IDisposable
 
     public static ShaderProgram FromCompute(string path)
     {
+        ArgumentException.ThrowIfNullOrEmpty(path);
         int cs = Compile(ShaderType.ComputeShader, File.ReadAllText(path));
         int program = Link(cs);
         return new ShaderProgram(program);
@@ -23,6 +24,8 @@ public sealed class ShaderProgram : IDisposable
 
     public static ShaderProgram FromVertexFragment(string vertPath, string fragPath)
     {
+        ArgumentException.ThrowIfNullOrEmpty(vertPath);
+        ArgumentException.ThrowIfNullOrEmpty(fragPath);
         int vs = Compile(ShaderType.VertexShader, File.ReadAllText(vertPath));
         int fs = Compile(ShaderType.FragmentShader, File.ReadAllText(fragPath));
         int program = Link(vs, fs);
@@ -31,10 +34,26 @@ public sealed class ShaderProgram : IDisposable
 
     public void Use() => GL.UseProgram(Handle);
 
-    public void SetFloat(string name, float value) => GL.Uniform1(Location(name), value);
-    public void SetUInt(string name, uint value) => GL.Uniform1(Location(name), value);
-    public void SetVector2(string name, Vector2 value) => GL.Uniform2(Location(name), value);
-public void SetInt(string name, int value) => GL.Uniform1(Location(name), value);
+    public void SetFloat(string name, float value)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        GL.Uniform1(Location(name), value);
+    }
+    public void SetUInt(string name, uint value)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        GL.Uniform1(Location(name), value);
+    }
+    public void SetVector2(string name, Vector2 value)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        GL.Uniform2(Location(name), value);
+    }
+    public void SetInt(string name, int value)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        GL.Uniform1(Location(name), value);
+    }
 
     private int Location(string name)
     {
