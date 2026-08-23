@@ -11,11 +11,17 @@ namespace GpuParticleSandbox;
 /// compute shader integrate it every frame. Rendering reads the same buffer,
 /// so the data never leaves VRAM after the initial upload.
 /// </summary>
+/// <summary>
+/// Represents a particle system that manages GPU-accelerated particle simulation and rendering.
+/// </summary>
 public sealed class ParticleSystem : IDisposable
 {
     private const int LocalSize = 256; // must match layout(local_size_x) in the .comp
 
-    public enum EmitterShape
+    /// <summary>
+/// Defines the shape used for particle emission.
+/// </summary>
+public enum EmitterShape
     {
         Point,
         Circle,
@@ -29,7 +35,10 @@ public sealed class ParticleSystem : IDisposable
     /// Strength: attraction force multiplier
     /// Radius: distance at which attraction starts (inverse-square law)
     /// </summary>
-    public readonly struct GravityWell
+    /// <summary>
+/// Structure representing a gravity well used for particle attraction.
+/// </summary>
+public readonly struct GravityWell
     {
         public readonly Vector2 Position;
         public readonly float Strength;
@@ -80,8 +89,15 @@ private int _colorMode = 0;
         _vao = GL.GenVertexArray();
     }
 
-    public EmitterShape Shape => _shape;
+    /// <summary>
+/// Gets the emitter shape used by this particle system.
+/// </summary>
+public EmitterShape Shape => _shape;
 
+/// <summary>
+/// Sets the color mode for particle rendering.
+/// </summary>
+/// <param name="colorMode">The mode to use for color calculation</param>
 public void SetColorMode(int colorMode)
 {
     _colorMode = colorMode;
@@ -159,7 +175,14 @@ public void SetColorMode(int colorMode)
         }
     }
 
-    public void Update(float deltaTime, Vector2 gravityWell, float wellStrength, float wellRadius = 0.0f)
+    /// <summary>
+/// Updates particle simulation with a single gravity well.
+/// </summary>
+/// <param name="deltaTime">Time step for simulation</param>
+/// <param name="gravityWell">Position of the gravity well</param>
+/// <param name="wellStrength">Attraction force multiplier</param>
+/// <param name="wellRadius">Distance at which attraction starts</param>
+public void Update(float deltaTime, Vector2 gravityWell, float wellStrength, float wellRadius = 0.0f)
     {
         Update(deltaTime, new[] { new GravityWell(gravityWell, wellStrength, wellRadius) });
     }
@@ -234,7 +257,12 @@ public void SetColorMode(int colorMode)
         }
     }
 
-    public void Update(float deltaTime, IReadOnlyList<GravityWell> wells)
+    /// <summary>
+/// Updates particle simulation with multiple gravity wells.
+/// </summary>
+/// <param name="deltaTime">Time step for simulation</param>
+/// <param name="wells">List of gravity wells affecting particles</param>
+public void Update(float deltaTime, IReadOnlyList<GravityWell> wells)
     {
         ArgumentNullException.ThrowIfNull(wells);
 
@@ -265,7 +293,10 @@ public void SetColorMode(int colorMode)
             | MemoryBarrierFlags.VertexAttribArrayBarrierBit);
     }
 
-    public void Render()
+    /// <summary>
+/// Renders the particle system using the GPU.
+/// </summary>
+public void Render()
     {
         _render.Use();
     _render.SetInt("uColorMode", _colorMode);
@@ -274,7 +305,10 @@ public void SetColorMode(int colorMode)
         GL.BindVertexArray(0);
     }
 
-    public void Dispose()
+    /// <summary>
+/// Releases all resources used by the particle system.
+/// </summary>
+public void Dispose()
     {
         GL.DeleteBuffer(_ssbo);
         GL.DeleteVertexArray(_vao);
