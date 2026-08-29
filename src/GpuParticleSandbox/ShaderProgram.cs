@@ -62,6 +62,9 @@ public sealed class ShaderProgram : IDisposable
 
         int loc = GL.GetUniformLocation(Handle, name);
         _uniformCache[name] = loc;
+        if (loc == -1)
+            Console.Error.WriteLine($"[shader] Uniform '{name}' was not found in program {Handle}.");
+
         return loc;
     }
 
@@ -77,6 +80,10 @@ public sealed class ShaderProgram : IDisposable
             string log = GL.GetShaderInfoLog(shader);
             throw new InvalidOperationException($"{type} failed to compile:\n{log}");
         }
+
+        string warningLog = GL.GetShaderInfoLog(shader);
+        if (!string.IsNullOrWhiteSpace(warningLog))
+            Console.Error.WriteLine($"[shader] {type} warning: {warningLog}");
 
         return shader;
     }
@@ -94,6 +101,10 @@ public sealed class ShaderProgram : IDisposable
             string log = GL.GetProgramInfoLog(program);
             throw new InvalidOperationException($"Program link failed:\n{log}");
         }
+
+        string warningLog = GL.GetProgramInfoLog(program);
+        if (!string.IsNullOrWhiteSpace(warningLog))
+            Console.Error.WriteLine($"[shader] Program link warning: {warningLog}");
 
         // shaders can be detached/deleted once the program is linked
         foreach (int s in shaders)
