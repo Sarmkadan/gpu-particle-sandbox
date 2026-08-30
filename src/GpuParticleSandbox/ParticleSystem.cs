@@ -10,8 +10,6 @@ namespace GpuParticleSandbox;
 /// Owns the particle SSBO and drives it: seed on the CPU once, then let the
 /// compute shader integrate it every frame. Rendering reads the same buffer,
 /// so the data never leaves VRAM after the initial upload.
-/// </summary>
-/// <summary>
 /// Represents a particle system that manages GPU-accelerated particle simulation and rendering.
 /// </summary>
 public sealed class ParticleSystem : IDisposable
@@ -19,9 +17,9 @@ public sealed class ParticleSystem : IDisposable
     private const int LocalSize = 256; // must match layout(local_size_x) in the .comp
 
     /// <summary>
-/// Defines the shape used for particle emission.
-/// </summary>
-public enum EmitterShape
+    /// Defines the shape used for particle emission.
+    /// </summary>
+    public enum EmitterShape
     {
         Point,
         Circle,
@@ -30,15 +28,12 @@ public enum EmitterShape
     }
 
     /// <summary>
-    /// Gravity well definition for CPU-side simulation.
+    /// Structure representing a gravity well used for particle attraction.
     /// Position: world coordinates
     /// Strength: attraction force multiplier
     /// Radius: distance at which attraction starts (inverse-square law)
     /// </summary>
-    /// <summary>
-/// Structure representing a gravity well used for particle attraction.
-/// </summary>
-public readonly struct GravityWell
+    public readonly struct GravityWell
     {
         public readonly Vector2 Position;
         public readonly float Strength;
@@ -56,7 +51,7 @@ public readonly struct GravityWell
     private readonly int _ssbo;
     private readonly int _vao;
     private readonly EmitterShape _shape;
-private int _colorMode = 0;
+    private int _colorMode = 0;
     private bool _disposed;
 
     private readonly ShaderProgram _compute;
@@ -92,21 +87,29 @@ private int _colorMode = 0;
     }
 
     /// <summary>
-/// Gets the emitter shape used by this particle system.
-/// </summary>
-public EmitterShape Shape => _shape;
+    /// Gets the emitter shape used by this particle system.
+    /// </summary>
+    public EmitterShape Shape => _shape;
 
-/// <summary>
-/// Sets the color mode for particle rendering.
-/// </summary>
-/// <param name="colorMode">The mode to use for color calculation</param>
-public void SetColorMode(int colorMode)
-{
-    ArgumentOutOfRangeException.ThrowIfLessThan(colorMode, 0);
-    ArgumentOutOfRangeException.ThrowIfGreaterThan(colorMode, 2);
+    /// <summary>
+    /// Sets the color mode for particle rendering.
+    /// </summary>
+    /// <param name="colorMode">The mode to use for color calculation</param>
+    public void SetColorMode(int colorMode)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(colorMode, 0);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(colorMode, 2);
 
-    _colorMode = colorMode;
-}
+        _colorMode = colorMode;
+    }
+
+    private const float LifeMin = 0.5f;
+    private const float LifeSpread = 3.5f;
+
+    private static float RandomLife(Random rng)
+    {
+        return LifeMin + (float)rng.NextDouble() * LifeSpread;
+    }
 
     private Particle[] CreateSeed(int count)
     {
@@ -122,72 +125,60 @@ public void SetColorMode(int colorMode)
     private Particle CreateParticle(Random rng, int count, int index)
     {
         float t = index / (float)count;
+        Vector2 position;
         switch (_shape)
         {
             case EmitterShape.Point:
-                return new Particle
-                {
-                    Position = Vector2.Zero,
-                    Velocity = Vector2.Zero,
-                    Life = 0.5f + (float)rng.NextDouble() * 3.5f,
-                };
+                position = Vector2.Zero;
+                break;
 
             case EmitterShape.Circle:
                 {
                     double angle = rng.NextDouble() * Math.PI * 2.0;
                     float radius = (float)rng.NextDouble();
-                    return new Particle
-                    {
-                        Position = new Vector2(
-                            (float)Math.Cos(angle) * radius,
-                            (float)Math.Sin(angle) * radius),
-                        Velocity = Vector2.Zero,
-                        Life = 0.5f + (float)rng.NextDouble() * 3.5f,
-                    };
+                    position = new Vector2(
+                        (float)Math.Cos(angle) * radius,
+                        (float)Math.Sin(angle) * radius);
+                    break;
                 }
 
             case EmitterShape.Line:
                 {
                     float x = (float)rng.NextDouble() * 2.0f - 1.0f;
-                    return new Particle
-                    {
-                        Position = new Vector2(x, 0.0f),
-                        Velocity = Vector2.Zero,
-                        Life = 0.5f + (float)rng.NextDouble() * 3.5f,
-                    };
+                    position = new Vector2(x, 0.0f);
+                    break;
                 }
 
             case EmitterShape.Ring:
                 {
                     double angle = rng.NextDouble() * Math.PI * 2.0;
-                    return new Particle
-                    {
-                        Position = new Vector2(
-                            (float)Math.Cos(angle),
-                            (float)Math.Sin(angle)),
-                        Velocity = Vector2.Zero,
-                        Life = 0.5f + (float)rng.NextDouble() * 3.5f,
-                    };
+                    position = new Vector2(
+                        (float)Math.Cos(angle),
+                        (float)Math.Sin(angle));
+                    break;
                 }
 
             default:
-                return new Particle
-                {
-                    Position = Vector2.Zero,
-                    Velocity = Vector2.Zero,
-                    Life = 0.5f + (float)rng.NextDouble() * 3.5f,
-                };
+                position = Vector2.Zero;
+                break;
         }
+
+        return new Particle
+        {
+            Position = position,
+            Velocity = Vector2.Zero,
+            Life = RandomLife(rng),
+        };
     }
 
     /// <summary>
-/// Updates particle simulation with a single gravity well.
-/// </summary>
-/// <param name="deltaTime">Time step for simulation</param>
-/// <param name="gravityWell">Position of the gravity well</param>
-/// <param name="wellStrength">Attraction force multiplier</param>
-/// <param name="wellRadius">Distance at which attraction starts</param>
-public void Update(float deltaTime, Vector2 gravityWell, float wellStrength, float wellRadius = 0.0f)
+    /// Updates particle simulation with a single gravity well.
+    /// </summary>
+    /// <param name="deltaTime">Time step for simulation</param>
+    /// <param name="gravityWell">Position of the gravity well</param>
+    /// <param name="wellStrength">Attraction force multiplier</param>
+    /// <param name="wellRadius">Distance at which attraction starts</param>
+    public void Update(float deltaTime, Vector2 gravityWell, float wellStrength, float wellRadius = 0.0f)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!float.IsFinite(deltaTime))
@@ -267,11 +258,11 @@ public void Update(float deltaTime, Vector2 gravityWell, float wellStrength, flo
     }
 
     /// <summary>
-/// Updates particle simulation with multiple gravity wells.
-/// </summary>
-/// <param name="deltaTime">Time step for simulation</param>
-/// <param name="wells">List of gravity wells affecting particles</param>
-public void Update(float deltaTime, IReadOnlyList<GravityWell> wells)
+    /// Updates particle simulation with multiple gravity wells.
+    /// </summary>
+    /// <param name="deltaTime">Time step for simulation</param>
+    /// <param name="wells">List of gravity wells affecting particles</param>
+    public void Update(float deltaTime, IReadOnlyList<GravityWell> wells)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!float.IsFinite(deltaTime))
@@ -307,23 +298,23 @@ public void Update(float deltaTime, IReadOnlyList<GravityWell> wells)
     }
 
     /// <summary>
-/// Renders the particle system using the GPU.
-/// </summary>
-public void Render()
+    /// Renders the particle system using the GPU.
+    /// </summary>
+    public void Render()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         _render.Use();
-    _render.SetInt("uColorMode", _colorMode);
+        _render.SetInt("uColorMode", _colorMode);
         GL.BindVertexArray(_vao);
         GL.DrawArrays(PrimitiveType.Points, 0, _count);
         GL.BindVertexArray(0);
     }
 
     /// <summary>
-/// Releases all resources used by the particle system.
-/// </summary>
-public void Dispose()
+    /// Releases all resources used by the particle system.
+    /// </summary>
+    public void Dispose()
     {
         if (_disposed)
             return;
