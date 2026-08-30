@@ -57,12 +57,14 @@ public readonly struct GravityWell
     private readonly int _vao;
     private readonly EmitterShape _shape;
 private int _colorMode = 0;
+    private bool _disposed;
 
     private readonly ShaderProgram _compute;
     private readonly ShaderProgram _render;
 
     public ParticleSystem(int count, string shaderDir, EmitterShape shape = EmitterShape.Point)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
         ArgumentException.ThrowIfNullOrEmpty(shaderDir);
 
         _count = count;
@@ -100,6 +102,9 @@ public EmitterShape Shape => _shape;
 /// <param name="colorMode">The mode to use for color calculation</param>
 public void SetColorMode(int colorMode)
 {
+    ArgumentOutOfRangeException.ThrowIfLessThan(colorMode, 0);
+    ArgumentOutOfRangeException.ThrowIfGreaterThan(colorMode, 2);
+
     _colorMode = colorMode;
 }
 
@@ -184,6 +189,10 @@ public void SetColorMode(int colorMode)
 /// <param name="wellRadius">Distance at which attraction starts</param>
 public void Update(float deltaTime, Vector2 gravityWell, float wellStrength, float wellRadius = 0.0f)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!float.IsFinite(deltaTime))
+            throw new ArgumentOutOfRangeException(nameof(deltaTime));
+
         Update(deltaTime, new[] { new GravityWell(gravityWell, wellStrength, wellRadius) });
     }
 
@@ -264,6 +273,10 @@ public void Update(float deltaTime, Vector2 gravityWell, float wellStrength, flo
 /// <param name="wells">List of gravity wells affecting particles</param>
 public void Update(float deltaTime, IReadOnlyList<GravityWell> wells)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!float.IsFinite(deltaTime))
+            throw new ArgumentOutOfRangeException(nameof(deltaTime));
+
         ArgumentNullException.ThrowIfNull(wells);
 
         _compute.Use();
@@ -298,6 +311,8 @@ public void Update(float deltaTime, IReadOnlyList<GravityWell> wells)
 /// </summary>
 public void Render()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         _render.Use();
     _render.SetInt("uColorMode", _colorMode);
         GL.BindVertexArray(_vao);
@@ -310,9 +325,13 @@ public void Render()
 /// </summary>
 public void Dispose()
     {
+        if (_disposed)
+            return;
+
         GL.DeleteBuffer(_ssbo);
         GL.DeleteVertexArray(_vao);
         _compute.Dispose();
         _render.Dispose();
+        _disposed = true;
     }
 }
