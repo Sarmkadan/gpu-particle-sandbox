@@ -16,6 +16,15 @@ namespace GpuParticleSandbox;
 public sealed class SandboxWindow : GameWindow
 {
     private const int ParticleCount = 100_000;
+    private const float DefaultWellStrength = 0.15f;
+    private const float SimSpeedStep = 0.1f;
+    private const float SimSpeedMin = 0.1f;
+    private const float SimSpeedMax = 5.0f;
+    private const double FpsSmoothing = 0.1;
+    private const int WindowSize = 1024;
+    private const string PresetFileName = "presets.json";
+    private static readonly Color4 ClearColor = new(0.02f, 0.02f, 0.04f, 1.0f);
+    private static readonly Version OpenGlVersion = new(4, 3);
 
     private ParticleSystem _particles = null!;
     private Vector2 _well = Vector2.Zero;
@@ -23,7 +32,7 @@ public sealed class SandboxWindow : GameWindow
     private bool _singleStepQueued = false;
     private float _simulationSpeed = 1.0f;
     private int _colorMode = 0;
-    private FpsCounter _fpsCounter = new FpsCounter(0.1);
+    private FpsCounter _fpsCounter = new FpsCounter(FpsSmoothing);
 
     // Input handling maps
     private readonly Dictionary<Keys, Action> _keyPressActions = new();
@@ -34,9 +43,9 @@ public sealed class SandboxWindow : GameWindow
             GameWindowSettings.Default,
             new NativeWindowSettings
             {
-                ClientSize = new Vector2i(1024, 1024),
+                ClientSize = new Vector2i(WindowSize, WindowSize),
                 Title = "GPU Particle Sandbox",
-                APIVersion = new Version(4, 3),
+                APIVersion = OpenGlVersion,
                 Profile = ContextProfile.Core,
             })
     {
@@ -61,22 +70,22 @@ public sealed class SandboxWindow : GameWindow
             _particles.SetColorMode(_colorMode);
         };
 
-        _keyPressActions[Keys.F5] = () => SavePreset("presets.json");
+        _keyPressActions[Keys.F5] = () => SavePreset(PresetFileName);
 
-        _keyPressActions[Keys.F9] = () => LoadPreset("presets.json");
+        _keyPressActions[Keys.F9] = () => LoadPreset(PresetFileName);
 
         // Actions that should fire while the key is held down
-        _keyDownActions[Keys.Equal] = () => _simulationSpeed = Math.Clamp(_simulationSpeed + 0.1f, 0.1f, 5.0f);
-        _keyDownActions[Keys.KeyPadAdd] = () => _simulationSpeed = Math.Clamp(_simulationSpeed + 0.1f, 0.1f, 5.0f);
-        _keyDownActions[Keys.Minus] = () => _simulationSpeed = Math.Clamp(_simulationSpeed - 0.1f, 0.1f, 5.0f);
-        _keyDownActions[Keys.KeyPadSubtract] = () => _simulationSpeed = Math.Clamp(_simulationSpeed - 0.1f, 0.1f, 5.0f);
+        _keyDownActions[Keys.Equal] = () => _simulationSpeed = Math.Clamp(_simulationSpeed + SimSpeedStep, SimSpeedMin, SimSpeedMax);
+        _keyDownActions[Keys.KeyPadAdd] = () => _simulationSpeed = Math.Clamp(_simulationSpeed + SimSpeedStep, SimSpeedMin, SimSpeedMax);
+        _keyDownActions[Keys.Minus] = () => _simulationSpeed = Math.Clamp(_simulationSpeed - SimSpeedStep, SimSpeedMin, SimSpeedMax);
+        _keyDownActions[Keys.KeyPadSubtract] = () => _simulationSpeed = Math.Clamp(_simulationSpeed - SimSpeedStep, SimSpeedMin, SimSpeedMax);
     }
 
     protected override void OnLoad()
     {
         base.OnLoad();
 
-        GL.ClearColor(0.02f, 0.02f, 0.04f, 1.0f);
+        GL.ClearColor(ClearColor);
         GL.Enable(EnableCap.ProgramPointSize);
         GL.Enable(EnableCap.Blend);
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One); // additive glow
@@ -85,7 +94,7 @@ public sealed class SandboxWindow : GameWindow
         _particles = new ParticleSystem(ParticleCount, shaderDir);
 
         // Load default preset on startup
-        LoadPreset("presets.json");
+        LoadPreset(PresetFileName);
     }
 
     protected override void OnUpdateFrame(FrameEventArgs args)
@@ -122,7 +131,7 @@ public sealed class SandboxWindow : GameWindow
         if (!_isPaused || _singleStepQueued)
         {
             float dt = (float)args.Time * _simulationSpeed;
-            _particles.Update(dt, _well, wellStrength: 0.15f);
+            _particles.Update(dt, _well, wellStrength: DefaultWellStrength);
             if (_singleStepQueued)
                 _singleStepQueued = false;
         }
@@ -155,7 +164,7 @@ public sealed class SandboxWindow : GameWindow
             _particles.Shape,
             Vector2.Zero, // emitter params
             _simulationSpeed,
-            0.15f, // well strength
+            DefaultWellStrength, // well strength
             0.0f,  // well radius
             _isPaused
         );
