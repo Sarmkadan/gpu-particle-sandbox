@@ -16,7 +16,6 @@ layout(std430, binding = 0) buffer Particles
     Particle particles[];
 };
 
-in float vLife;
 out float vLife;
 out float vVelocityMagnitude;
 
