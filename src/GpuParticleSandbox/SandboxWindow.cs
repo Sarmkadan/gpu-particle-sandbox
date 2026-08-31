@@ -17,6 +17,9 @@ public sealed class SandboxWindow : GameWindow
 {
     private const int ParticleCount = 100_000;
     private const float DefaultWellStrength = 0.15f;
+    private const float WellStrengthStep = 0.01f;
+    private const float WellStrengthMin = 0.01f;
+    private const float WellStrengthMax = 1.0f;
     private const float SimSpeedStep = 0.1f;
     private const float SimSpeedMin = 0.1f;
     private const float SimSpeedMax = 5.0f;
@@ -31,6 +34,7 @@ public sealed class SandboxWindow : GameWindow
     private bool _isPaused = false;
     private bool _singleStepQueued = false;
     private float _simulationSpeed = 1.0f;
+    private float _wellStrength = DefaultWellStrength;
     private int _colorMode = 0;
     private FpsCounter _fpsCounter = new FpsCounter(FpsSmoothing);
 
@@ -131,12 +135,12 @@ public sealed class SandboxWindow : GameWindow
         if (!_isPaused || _singleStepQueued)
         {
             float dt = (float)args.Time * _simulationSpeed;
-            _particles.Update(dt, _well, wellStrength: DefaultWellStrength);
+            _particles.Update(dt, _well, wellStrength: _wellStrength);
             if (_singleStepQueued)
                 _singleStepQueued = false;
         }
 
-        Title = $"GPU Particle Sandbox - {_fpsCounter.GetDisplayString()}";
+        Title = $"GPU Particle Sandbox - {_fpsCounter.GetDisplayString()} - Well: {_wellStrength:F2}";
         GL.Clear(ClearBufferMask.ColorBufferBit);
         _particles.Render();
 
@@ -155,6 +159,15 @@ public sealed class SandboxWindow : GameWindow
         GL.Viewport(0, 0, e.Width, e.Height);
     }
 
+    protected override void OnMouseWheel(MouseWheelEventArgs e)
+    {
+        base.OnMouseWheel(e);
+        _wellStrength = Math.Clamp(
+            _wellStrength + e.OffsetY * WellStrengthStep,
+            WellStrengthMin,
+            WellStrengthMax);
+    }
+
     private void SavePreset(string filePath)
     {
         _particles.SetColorMode(_colorMode);
@@ -164,7 +177,7 @@ public sealed class SandboxWindow : GameWindow
             _particles.Shape,
             Vector2.Zero, // emitter params
             _simulationSpeed,
-            DefaultWellStrength, // well strength
+            _wellStrength, // well strength
             0.0f,  // well radius
             _isPaused
         );
@@ -180,6 +193,7 @@ public sealed class SandboxWindow : GameWindow
         _colorMode = preset.ColorMode;
         _particles.SetColorMode(_colorMode);
         _simulationSpeed = preset.SimulationSpeed;
+        _wellStrength = Math.Clamp(preset.WellStrength, WellStrengthMin, WellStrengthMax);
         _isPaused = preset.IsPaused;
 
         Console.WriteLine($"Preset loaded from {filePath}");
