@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -188,15 +189,35 @@ public sealed class SandboxWindow : GameWindow
 
     private void LoadPreset(string filePath)
     {
-        var preset = ParticlePreset.Load(Path.Combine(AppContext.BaseDirectory, filePath));
+        string presetPath = Path.Combine(AppContext.BaseDirectory, filePath);
+        if (!File.Exists(presetPath))
+        {
+            Console.WriteLine($"Preset file not found: {filePath}");
+            return;
+        }
 
-        _colorMode = preset.ColorMode;
-        _particles.SetColorMode(_colorMode);
-        _simulationSpeed = preset.SimulationSpeed;
-        _wellStrength = Math.Clamp(preset.WellStrength, WellStrengthMin, WellStrengthMax);
-        _isPaused = preset.IsPaused;
+        try
+        {
+            // Validate here because ParticlePreset.Load falls back to its own defaults
+            // when deserialization fails, which would overwrite the current settings.
+            using (JsonDocument.Parse(File.ReadAllText(presetPath)))
+            {
+            }
 
-        Console.WriteLine($"Preset loaded from {filePath}");
+            var preset = ParticlePreset.Load(presetPath);
+
+            _colorMode = preset.ColorMode;
+            _particles.SetColorMode(_colorMode);
+            _simulationSpeed = preset.SimulationSpeed;
+            _wellStrength = Math.Clamp(preset.WellStrength, WellStrengthMin, WellStrengthMax);
+            _isPaused = preset.IsPaused;
+
+            Console.WriteLine($"Preset loaded from {filePath}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            Console.WriteLine($"Could not load preset {filePath}: {ex.Message}");
+        }
     }
 
     protected override void OnUnload()
