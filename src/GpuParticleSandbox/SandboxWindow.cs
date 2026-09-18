@@ -96,7 +96,12 @@ public sealed class SandboxWindow : GameWindow
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One); // additive glow
 
         string shaderDir = Path.Combine(AppContext.BaseDirectory, "Shaders");
-        _particles = new ParticleSystem(ParticleCount, shaderDir);
+        _particles = new ParticleSystemBuilder()
+            .WithParticleCount(ParticleCount)
+            .WithShaderDirectory(shaderDir)
+            .WithEmitterShape(ParticleSystem.EmitterShape.Point)
+            .WithColorMode(ColorMode.Velocity)
+            .Build();
 
         // Load default preset on startup
         LoadPreset(PresetFileName);
