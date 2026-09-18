@@ -1,5 +1,7 @@
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -47,7 +49,7 @@ public sealed class ParticleSystem : IDisposable
         }
     }
 
-    private readonly int _count;
+    private int _count;
     private readonly int _ssbo;
     private readonly int _vao;
     private readonly EmitterShape _shape;
@@ -56,14 +58,29 @@ public sealed class ParticleSystem : IDisposable
 
     private readonly ShaderProgram _compute;
     private readonly ShaderProgram _render;
+    private readonly ILogger<ParticleSystem> _logger;
 
-    public ParticleSystem(int count, string shaderDir, EmitterShape shape = EmitterShape.Point)
+    // LoggerMessage definitions for structured logging without allocations
+    private static readonly Action<ILogger<ParticleSystem>, int, Exception?> _logInitialized =
+        LoggerMessage.Define<int>(LogLevel.Information, new EventId(1, "Initialized"), "Particle system initialized with {Count} particles");
+
+    private static readonly Action<ILogger<ParticleSystem>, int, int, Exception?> _logBufferResized =
+        LoggerMessage.Define<int, int>(LogLevel.Debug, new EventId(2, "BufferResized"), "Particle buffer resized from {OldCount} to {NewCount}");
+
+    private static readonly Action<ILogger<ParticleSystem>, int, Exception?> _logParticleCountChanged =
+        LoggerMessage.Define<int>(LogLevel.Debug, new EventId(3, "ParticleCountChanged"), "Particle count changed to {Count}");
+
+    private static readonly Action<ILogger<ParticleSystem>, Exception?> _logDisposed =
+        LoggerMessage.Define(LogLevel.Debug, new EventId(4, "Disposed"), "Particle system disposed");
+
+    public ParticleSystem(int count, string shaderDir, EmitterShape shape = EmitterShape.Point, ILogger<ParticleSystem>? logger = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
         ArgumentException.ThrowIfNullOrEmpty(shaderDir);
 
         _count = count;
         _shape = shape;
+        _logger = logger ?? NullLogger<ParticleSystem>.Instance;
 
         _compute = ShaderProgram.FromCompute(Path.Combine(shaderDir, "particles.comp"));
         _render = ShaderProgram.FromVertexFragment(
@@ -84,6 +101,8 @@ public sealed class ParticleSystem : IDisposable
         // the vertex shader pulls straight from the SSBO by gl_VertexID, so the
         // VAO carries no attributes - it just needs to exist to issue the draw
         _vao = GL.GenVertexArray();
+
+        _logInitialized(_logger, count, null);
     }
 
     /// <summary>
@@ -101,6 +120,31 @@ public sealed class ParticleSystem : IDisposable
         ArgumentOutOfRangeException.ThrowIfGreaterThan(colorMode, 2);
 
         _colorMode = colorMode;
+    }
+
+    /// <summary>
+    /// Resizes the particle buffer to a new particle count, re-seeding the simulation.
+    /// </summary>
+    /// <param name="newCount">The new number of particles</param>
+    public void Resize(int newCount)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(newCount);
+
+        int oldCount = _count;
+        Particle[] seed = CreateSeed(newCount);
+
+        GL.BindBuffer(BufferTarget.ShaderStorageBuffer, _ssbo);
+        GL.BufferData(
+            BufferTarget.ShaderStorageBuffer,
+            newCount * Particle.SizeInBytes,
+            seed,
+            BufferUsageHint.DynamicDraw);
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, 0, _ssbo);
+        _count = newCount;
+
+        _logBufferResized(_logger, oldCount, newCount, null);
+        _logParticleCountChanged(_logger, newCount, null);
     }
 
     private const float LifeMin = 0.5f;
@@ -324,5 +368,7 @@ public sealed class ParticleSystem : IDisposable
         _compute.Dispose();
         _render.Dispose();
         _disposed = true;
+
+        _logDisposed(_logger, null);
     }
 }
