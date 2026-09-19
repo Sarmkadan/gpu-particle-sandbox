@@ -6,6 +6,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using GpuParticleSandbox.Exceptions;
 
 namespace GpuParticleSandbox;
 
@@ -89,22 +90,66 @@ public sealed class SandboxWindow : GameWindow
     protected override void OnLoad()
     {
         base.OnLoad();
+        try
+        {
+            Initialize();
+        }
+        catch (SandboxInitializationException ex)
+        {
+            Console.Error.WriteLine($"Sandbox initialization failed at stage '{ex.Stage}': {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                Console.Error.WriteLine($"  Inner: {ex.InnerException.Message}");
+            }
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Unexpected initialization failure: {ex.Message}");
+            throw new SandboxInitializationException(InitializationStage.ResourceInitialization, "Failed to initialize sandbox resources", ex);
+        }
+    }
 
-        GL.ClearColor(ClearColor);
-        GL.Enable(EnableCap.ProgramPointSize);
-        GL.Enable(EnableCap.Blend);
-        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One); // additive glow
+    private void Initialize()
+    {
+        try
+        {
+            // OpenGL context & state setup
+            GL.ClearColor(ClearColor);
+            GL.Enable(EnableCap.ProgramPointSize);
+            GL.Enable(EnableCap.Blend);
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One); // additive glow
+        }
+        catch (Exception ex)
+        {
+            throw new SandboxInitializationException(InitializationStage.ContextCreation, "Failed to configure OpenGL context/state", ex);
+        }
 
-        string shaderDir = Path.Combine(AppContext.BaseDirectory, "Shaders");
-        _particles = new ParticleSystemBuilder()
-            .WithParticleCount(ParticleCount)
-            .WithShaderDirectory(shaderDir)
-            .WithEmitterShape(ParticleSystem.EmitterShape.Point)
-            .WithColorMode(ColorMode.Velocity)
-            .Build();
+        try
+        {
+            // Shader loading & resource initialization
+            string shaderDir = Path.Combine(AppContext.BaseDirectory, "Shaders");
+            _particles = new ParticleSystemBuilder()
+                .WithParticleCount(ParticleCount)
+                .WithShaderDirectory(shaderDir)
+                .WithEmitterShape(ParticleSystem.EmitterShape.Point)
+                .WithColorMode(ColorMode.Velocity)
+                .Build();
+        }
+        catch (Exception ex)
+        {
+            DisposePartialResources();
+            throw new SandboxInitializationException(InitializationStage.ResourceInitialization, "Failed to load shaders or initialize particle system", ex);
+        }
 
         // Load default preset on startup
         LoadPreset(PresetFileName);
+    }
+
+    private void DisposePartialResources()
+    {
+        _particles?.Dispose();
+        _particles = null!;
     }
 
     protected override void OnUpdateFrame(FrameEventArgs args)
