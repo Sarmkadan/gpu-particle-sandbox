@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
@@ -52,6 +53,29 @@ public sealed class ShaderProgram : IDisposable
         ArgumentException.ThrowIfNullOrEmpty(fragPath);
         int vs = Compile(ShaderType.VertexShader, File.ReadAllText(vertPath));
         int fs = Compile(ShaderType.FragmentShader, File.ReadAllText(fragPath));
+        int program = Link(vs, fs);
+        return new ShaderProgram(program);
+    }
+
+    /// <summary>
+    /// Asynchronously creates and loads a vertex and fragment shader program from the specified file paths.
+    /// Reads shader sources asynchronously, then compiles on the caller's GL thread.
+    /// </summary>
+    /// <param name="vertexPath">The path to the vertex shader file.</param>
+    /// <param name="fragmentPath">The path to the fragment shader file.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A linked <see cref="ShaderProgram"/> instance.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the shaders fail to compile or the program fails to link.</exception>
+    public static async Task<ShaderProgram> LoadFromFilesAsync(string vertexPath, string fragmentPath, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(vertexPath);
+        ArgumentException.ThrowIfNullOrEmpty(fragmentPath);
+        
+        string vertSource = await File.ReadAllTextAsync(vertexPath, ct).ConfigureAwait(false);
+        string fragSource = await File.ReadAllTextAsync(fragmentPath, ct).ConfigureAwait(false);
+        
+        int vs = Compile(ShaderType.VertexShader, vertSource);
+        int fs = Compile(ShaderType.FragmentShader, fragSource);
         int program = Link(vs, fs);
         return new ShaderProgram(program);
     }

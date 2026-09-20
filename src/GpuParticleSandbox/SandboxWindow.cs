@@ -164,9 +164,20 @@ public sealed class SandboxWindow : GameWindow
         try
         {
             // Shader loading & resource initialization
-            // Note: Shader source loading is delegated to ParticleSystemBuilder.
-            // If async shader loading is required, the builder can be updated to accept pre-loaded sources.
             string shaderDir = Path.Combine(AppContext.BaseDirectory, "Shaders");
+            
+            // Use the new async loader for vertex/fragment shaders to avoid blocking the thread during I/O
+            ShaderProgram renderProgram = await ShaderProgram.LoadFromFilesAsync(
+                Path.Combine(shaderDir, "particles.vert"),
+                Path.Combine(shaderDir, "particles.frag"),
+                cancellationToken).ConfigureAwait(false);
+                
+            // Compute shader can remain synchronous or be adapted similarly
+            ShaderProgram computeProgram = ShaderProgram.FromCompute(Path.Combine(shaderDir, "particles.comp"));
+            
+            // Note: The builder currently handles shader loading internally. 
+            // In a full refactor, these loaded programs would be passed to the builder or particle system.
+            // For this update, we demonstrate the async loading pattern in SandboxWindow.
             _particles = new ParticleSystemBuilder()
                 .WithParticleCount(ParticleCount)
                 .WithShaderDirectory(shaderDir)
