@@ -48,6 +48,10 @@ public sealed class SandboxWindow : GameWindow
     private readonly Dictionary<Keys, Action> _keyPressActions = new();
     private readonly Dictionary<Keys, Action> _keyDownActions = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SandboxWindow"/> class.
+    /// Configures the window size, title, and requests an OpenGL 4.3 Core profile context.
+    /// </summary>
     public SandboxWindow()
         : base(
             GameWindowSettings.Default,
@@ -65,6 +69,19 @@ public sealed class SandboxWindow : GameWindow
     /// <summary>
     /// Sets up dictionaries that map keys to actions.
     /// </summary>
+    /// <remarks>
+    /// <list type="table">
+    ///   <listheader><term>Key</term><th>Action</th></listheader>
+    ///   <item><term>Escape</term><th>Closes the application.</th></item>
+    ///   <item><term>Space</term><th>Toggles simulation pause/resume.</th></item>
+    ///   <item><term>Period (.)</term><th>Queues a single simulation step while paused.</th></item>
+    ///   <item><term>C</term><th>Cycles through color visualization modes.</th></item>
+    ///   <item><term>F5</term><th>Saves the current simulation state to a preset file.</th></item>
+    ///   <item><term>F9</term><th>Loads the most recently saved preset file.</th></item>
+    ///   <item><term>= / Numpad +</term><th>Increases simulation speed.</th></item>
+    ///   <item><term>- / Numpad -</term><th>Decreases simulation speed.</th></item>
+    /// </list>
+    /// </remarks>
     private void InitializeInputMaps()
     {
         // Actions that should fire once per key press
@@ -91,6 +108,13 @@ public sealed class SandboxWindow : GameWindow
         _keyDownActions[Keys.KeyPadSubtract] = () => _simulationSpeed = Math.Clamp(_simulationSpeed - SimSpeedStep, SimSpeedMin, SimSpeedMax);
     }
 
+    /// <summary>
+    /// Called when the window is loaded and the OpenGL context is ready.
+    /// </summary>
+    /// <remarks>
+    /// <para>Thread: Main render thread.</para>
+    /// <para>GL State Assumptions: Assumes a valid OpenGL 4.3 Core context is current. Synchronously initializes the particle system and OpenGL state via <see cref="InitializeAsync"/>.</para>
+    /// </remarks>
     protected override void OnLoad()
     {
         base.OnLoad();
@@ -116,8 +140,12 @@ public sealed class SandboxWindow : GameWindow
 
     /// <summary>
     /// Asynchronously loads configuration/assets and initializes OpenGL resources.
-    /// GL calls remain on the render thread as this is invoked from OnLoad.
     /// </summary>
+    /// <param name="cancellationToken">Token used to cancel initialization.</param>
+    /// <remarks>
+    /// <para>Thread: Main render thread (invoked synchronously from <see cref="OnLoad"/>).</para>
+    /// <para>GL State Assumptions: Assumes the OpenGL context is current and valid. Configures clear color, enables point size program control, and sets up additive blending.</para>
+    /// </remarks>
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -162,6 +190,15 @@ public sealed class SandboxWindow : GameWindow
         _particles = null!;
     }
 
+    /// <summary>
+    /// Called every frame to process input and update the simulation state.
+    /// </summary>
+    /// <param name="args">Frame timing information.</param>
+    /// <remarks>
+    /// <para>Thread: Main render thread.</para>
+    /// <para>GL State Assumptions: Does not make direct OpenGL calls. Delegates rendering state updates to <see cref="ParticleSystem"/>.</para>
+    /// <para>Processes keyboard input maps and updates the gravity well position based on mouse coordinates.</para>
+    /// </remarks>
     protected override void OnUpdateFrame(FrameEventArgs args)
     {
         base.OnUpdateFrame(args);
@@ -188,6 +225,14 @@ public sealed class SandboxWindow : GameWindow
         _well = new Vector2(x, y);
     }
 
+    /// <summary>
+    /// Called every frame to render the particle simulation to the screen.
+    /// </summary>
+    /// <param name="args">Frame timing information.</param>
+    /// <remarks>
+    /// <para>Thread: Main render thread.</para>
+    /// <para>GL State Assumptions: Assumes the OpenGL context is current and the particle system is fully initialized. Clears the color buffer, dispatches the particle render pass, and swaps the back/front buffers.</para>
+    /// </remarks>
     protected override void OnRenderFrame(FrameEventArgs args)
     {
         base.OnRenderFrame(args);
@@ -208,6 +253,14 @@ public sealed class SandboxWindow : GameWindow
         SwapBuffers();
     }
 
+    /// <summary>
+    /// Called when the window is resized.
+    /// </summary>
+    /// <param name="e">Event data containing the new client area dimensions.</param>
+    /// <remarks>
+    /// <para>Thread: Main render thread.</para>
+    /// <para>GL State Assumptions: Assumes the OpenGL context is current. Updates the OpenGL viewport to match the new window dimensions. Guards against zero-width or zero-height dimensions (e.g., minimized windows).</para>
+    /// </remarks>
     protected override void OnResize(ResizeEventArgs e)
     {
         base.OnResize(e);
@@ -220,6 +273,14 @@ public sealed class SandboxWindow : GameWindow
         GL.Viewport(0, 0, e.Width, e.Height);
     }
 
+    /// <summary>
+    /// Called when the mouse wheel is scrolled.
+    /// </summary>
+    /// <param name="e">Event data containing the scroll offset.</param>
+    /// <remarks>
+    /// <para>Thread: Main render thread.</para>
+    /// <para>GL State Assumptions: Does not make direct OpenGL calls. Adjusts the gravity well strength based on scroll direction. Clamps the strength to predefined minimum and maximum bounds.</para>
+    /// </remarks>
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
@@ -286,6 +347,13 @@ public sealed class SandboxWindow : GameWindow
         LoadPresetAsync(filePath, CancellationToken.None).GetAwaiter().GetResult();
     }
 
+    /// <summary>
+    /// Called when the window is about to be unloaded and the OpenGL context is being destroyed.
+    /// </summary>
+    /// <remarks>
+    /// <para>Thread: Main render thread.</para>
+    /// <para>GL State Assumptions: Cancels any pending asynchronous operations and disposes of the particle system resources. Assumes the OpenGL context is still valid for cleanup, but no new GL calls should be made after <c>base.OnUnload()</c>.</para>
+    /// </remarks>
     protected override void OnUnload()
     {
         _cts.Cancel();
