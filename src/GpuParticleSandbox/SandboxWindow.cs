@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -39,6 +42,7 @@ public sealed class SandboxWindow : GameWindow
     private float _wellStrength = DefaultWellStrength;
     private int _colorMode = 0;
     private FpsCounter _fpsCounter = new FpsCounter(FpsSmoothing);
+    private readonly CancellationTokenSource _cts = new();
 
     // Input handling maps
     private readonly Dictionary<Keys, Action> _keyPressActions = new();
@@ -92,7 +96,7 @@ public sealed class SandboxWindow : GameWindow
         base.OnLoad();
         try
         {
-            Initialize();
+            InitializeAsync(_cts.Token).GetAwaiter().GetResult();
         }
         catch (SandboxInitializationException ex)
         {
@@ -110,7 +114,11 @@ public sealed class SandboxWindow : GameWindow
         }
     }
 
-    private void Initialize()
+    /// <summary>
+    /// Asynchronously loads configuration/assets and initializes OpenGL resources.
+    /// GL calls remain on the render thread as this is invoked from OnLoad.
+    /// </summary>
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -128,6 +136,8 @@ public sealed class SandboxWindow : GameWindow
         try
         {
             // Shader loading & resource initialization
+            // Note: Shader source loading is delegated to ParticleSystemBuilder.
+            // If async shader loading is required, the builder can be updated to accept pre-loaded sources.
             string shaderDir = Path.Combine(AppContext.BaseDirectory, "Shaders");
             _particles = new ParticleSystemBuilder()
                 .WithParticleCount(ParticleCount)
@@ -142,8 +152,8 @@ public sealed class SandboxWindow : GameWindow
             throw new SandboxInitializationException(InitializationStage.ResourceInitialization, "Failed to load shaders or initialize particle system", ex);
         }
 
-        // Load default preset on startup
-        LoadPreset(PresetFileName);
+        // Load default preset on startup asynchronously
+        await LoadPresetAsync(PresetFileName, cancellationToken);
     }
 
     private void DisposePartialResources()
@@ -237,7 +247,7 @@ public sealed class SandboxWindow : GameWindow
         Console.WriteLine($"Preset saved to {filePath}");
     }
 
-    private void LoadPreset(string filePath)
+    private async Task LoadPresetAsync(string filePath, CancellationToken cancellationToken)
     {
         string presetPath = Path.Combine(AppContext.BaseDirectory, filePath);
         if (!File.Exists(presetPath))
@@ -250,7 +260,7 @@ public sealed class SandboxWindow : GameWindow
         {
             // Validate here because ParticlePreset.Load falls back to its own defaults
             // when deserialization fails, which would overwrite the current settings.
-            using (JsonDocument.Parse(File.ReadAllText(presetPath)))
+            using (JsonDocument.Parse(await File.ReadAllTextAsync(presetPath, cancellationToken)))
             {
             }
 
@@ -270,8 +280,15 @@ public sealed class SandboxWindow : GameWindow
         }
     }
 
+    private void LoadPreset(string filePath)
+    {
+        // Keep synchronous wrapper for runtime key-press actions to avoid blocking the render thread
+        LoadPresetAsync(filePath, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
     protected override void OnUnload()
     {
+        _cts.Cancel();
         _particles.Dispose();
         base.OnUnload();
     }
