@@ -18,7 +18,7 @@ public sealed class ShaderProgram : IDisposable
     /// Gets the underlying OpenGL program handle.
     /// </summary>
     public int Handle { get; }
-    private readonly Dictionary<string, int> _uniformCache = new();
+    private readonly UniformLocationCache _uniformCache = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShaderProgram"/> class.
@@ -35,7 +35,9 @@ public sealed class ShaderProgram : IDisposable
     public static ShaderProgram FromCompute(string path)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
-        int cs = Compile(ShaderType.ComputeShader, File.ReadAllText(path));
+        string source = File.ReadAllText(path);
+        source = ShaderSourcePreprocessor.ProcessIncludes(source, p => File.ReadAllText(p));
+        int cs = Compile(ShaderType.ComputeShader, source);
         int program = Link(cs);
         return new ShaderProgram(program);
     }
@@ -51,8 +53,14 @@ public sealed class ShaderProgram : IDisposable
     {
         ArgumentException.ThrowIfNullOrEmpty(vertPath);
         ArgumentException.ThrowIfNullOrEmpty(fragPath);
-        int vs = Compile(ShaderType.VertexShader, File.ReadAllText(vertPath));
-        int fs = Compile(ShaderType.FragmentShader, File.ReadAllText(fragPath));
+        string vertSource = File.ReadAllText(vertPath);
+        string fragSource = File.ReadAllText(fragPath);
+        
+        vertSource = ShaderSourcePreprocessor.ProcessIncludes(vertSource, p => File.ReadAllText(p));
+        fragSource = ShaderSourcePreprocessor.ProcessIncludes(fragSource, p => File.ReadAllText(p));
+        
+        int vs = Compile(ShaderType.VertexShader, vertSource);
+        int fs = Compile(ShaderType.FragmentShader, fragSource);
         int program = Link(vs, fs);
         return new ShaderProgram(program);
     }
@@ -93,7 +101,7 @@ public sealed class ShaderProgram : IDisposable
     public void SetFloat(string name, float value)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
-        GL.Uniform1(Location(name), value);
+        GL.Uniform1(_uniformCache.GetOrResolve(name, n => GL.GetUniformLocation(Handle, n)), value);
     }
 
     /// <summary>
@@ -104,7 +112,7 @@ public sealed class ShaderProgram : IDisposable
     public void SetUInt(string name, uint value)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
-        GL.Uniform1(Location(name), value);
+        GL.Uniform1(_uniformCache.GetOrResolve(name, n => GL.GetUniformLocation(Handle, n)), value);
     }
 
     /// <summary>
@@ -115,7 +123,7 @@ public sealed class ShaderProgram : IDisposable
     public void SetVector2(string name, Vector2 value)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
-        GL.Uniform2(Location(name), value);
+        GL.Uniform2(_uniformCache.GetOrResolve(name, n => GL.GetUniformLocation(Handle, n)), value);
     }
 
     /// <summary>
@@ -126,20 +134,7 @@ public sealed class ShaderProgram : IDisposable
     public void SetInt(string name, int value)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
-        GL.Uniform1(Location(name), value);
-    }
-
-    private int Location(string name)
-    {
-        if (_uniformCache.TryGetValue(name, out int cached))
-            return cached;
-
-        int loc = GL.GetUniformLocation(Handle, name);
-        _uniformCache[name] = loc;
-        if (loc == -1)
-            Console.Error.WriteLine($"[shader] Uniform '{name}' was not found in program {Handle}.");
-
-        return loc;
+        GL.Uniform1(_uniformCache.GetOrResolve(name, n => GL.GetUniformLocation(Handle, n)), value);
     }
 
     private static int Compile(ShaderType type, string source)
