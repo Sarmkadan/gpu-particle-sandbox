@@ -1,3 +1,4 @@
+using System;
 using System.Numerics;
 
 namespace GpuParticleSandbox
@@ -37,6 +38,21 @@ namespace GpuParticleSandbox
         /// <returns>An RGB <see cref="Vector3"/> representing the color.</returns>
         public static Vector3 Map(float velocityMagnitude, float age, ColorMode mode)
         {
+            if (!Enum.IsDefined(typeof(ColorMode), mode))
+            {
+                throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported color mode. Please use a defined ColorMode enum value.");
+            }
+
+            if (velocityMagnitude < 0f || velocityMagnitude > 1f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(velocityMagnitude), velocityMagnitude, "Velocity magnitude must be in the range [0, 1].");
+            }
+
+            if (age < 0f || age > 1f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(age), age, "Age must be in the range [0, 1].");
+            }
+
             return mode switch
             {
                 ColorMode.Velocity => MapVelocityToColor(velocityMagnitude),
