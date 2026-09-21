@@ -1,46 +1,43 @@
-using System;
 using BenchmarkDotNet.Attributes;
+using GpuParticleSandbox;
 
 namespace GpuParticleSandbox.Benchmarks;
 
+/// <summary>
+/// Benchmarks for <see cref="FpsCounter"/> to measure per-frame overhead and property access costs.
+/// </summary>
 [MemoryDiagnoser]
 public class FpsCounterBenchmarks
 {
-    private FpsCounter? _fpsCounter;
+    private FpsCounter _counter;
 
     [GlobalSetup]
     public void Setup()
     {
-        _fpsCounter = new FpsCounter();
+        _counter = new FpsCounter(0.1);
+        
+        // Warm up to establish initial EMA averages and ensure JIT compilation
+        for (int i = 0; i < 100; i++)
+        {
+            _counter.Tick();
+        }
+    }
+
+    [Benchmark(Baseline = true)]
+    public void Tick_PerFrame()
+    {
+        _counter.Tick();
     }
 
     [Benchmark]
-    public void Tick()
+    public void Update_PerFrame()
     {
-        _fpsCounter!.Tick();
+        _counter.Update();
     }
 
     [Benchmark]
-    public void Update()
+    public double ReadAverageFps()
     {
-        _fpsCounter!.Update();
-    }
-
-    [Benchmark]
-    public double AverageFps()
-    {
-        return _fpsCounter!.AverageFps;
-    }
-
-    [Benchmark]
-    public double AverageFrameTimeMs()
-    {
-        return _fpsCounter!.AverageFrameTimeMs;
-    }
-
-    [Benchmark]
-    public string GetDisplayString()
-    {
-        return _fpsCounter!.GetDisplayString();
+        return _counter.AverageFps;
     }
 }
