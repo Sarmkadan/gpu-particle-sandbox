@@ -361,6 +361,163 @@ shader.SetInt("particleCount", 100000);
 }
 ```
 
+## Custom shaders
+
+Every GL program in the sandbox is a `ShaderProgram`, so you can load your own the same way. This section covers a standalone program, swapping the particle shader, and measuring the difference with `FpsCounter`.
+
+### Loading a program
+
+`ShaderProgram` has three factories. All of them take file paths, not GLSL text:
+
+| Call | Stages |
+| --- | --- |
+| `ShaderProgram.FromVertexFragment(vertPath, fragPath)` | vertex + fragment |
+| `ShaderProgram.FromCompute(path)` | compute |
+| `await ShaderProgram.LoadFromFilesAsync(vertPath, fragPath, ct)` | vertex + fragment, reads the files asynchronously |
+
+A compile or link failure throws `InvalidOperationException` with the driver's info log. Warnings go to stderr.
+
+Minimal pair, saved as `Shaders/triangle.vert` and `Shaders/triangle.frag`. The csproj copies everything under `Shaders/` to the output folder:
+
+```glsl
+// triangle.vert
+#version 430 core
+
+uniform mat4 uMvp;
+
+void main()
+{
+    // No vertex buffer: the three corners come from gl_VertexID
+    vec2 corners[3] = vec2[](vec2(-0.5, -0.5), vec2(0.5, -0.5), vec2(0.0, 0.5));
+    gl_Position = uMvp * vec4(corners[gl_VertexID], 0.0, 1.0);
+}
+```
+
+```glsl
+// triangle.frag
+#version 430 core
+
+uniform vec3 uTint;
+uniform float uBrightness;
+
+out vec4 fragColor;
+
+void main()
+{
+    fragColor = vec4(uTint * uBrightness, 1.0);
+}
+```
+
+Create the program in `OnLoad`, where the GL context is current. Set uniforms, bind, and draw in `OnRenderFrame`. Delete it in `OnUnload`. This goes inside a `GameWindow` subclass like the custom window loop above. It needs `using System.IO;`, `using GpuParticleSandbox;`, `using OpenTK.Graphics.OpenGL4;`, `using OpenTK.Mathematics;` and `using OpenTK.Windowing.Common;` at the top of the file:
+
+```csharp
+private ShaderProgram _triangle = null!;
+private int _emptyVao;
+private float _angle;
+
+protected override void OnLoad()
+{
+    base.OnLoad();
+
+    string shaderDir = Path.Combine(AppContext.BaseDirectory, "Shaders");
+    _triangle = ShaderProgram.FromVertexFragment(
+        Path.Combine(shaderDir, "triangle.vert"),
+        Path.Combine(shaderDir, "triangle.frag"));
+
+    // A core-profile context needs a VAO bound to draw, even with no vertex data
+    _emptyVao = GL.GenVertexArray();
+}
+
+protected override void OnRenderFrame(FrameEventArgs args)
+{
+    base.OnRenderFrame(args);
+    _angle += (float)args.Time;
+
+    GL.Clear(ClearBufferMask.ColorBufferBit);
+
+    _triangle.Use();                                               // bind before setting uniforms
+    _triangle.SetFloat("uBrightness", 0.8f);                       // ShaderProgram method
+    _triangle.SetVector3("uTint", new Vector3(0.2f, 0.9f, 0.6f));  // extension (ShaderProgramExtensions)
+    _triangle.SetMatrix4("uMvp", Matrix4.CreateRotationZ(_angle)); // extension
+
+    GL.BindVertexArray(_emptyVao);
+    GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
+
+    SwapBuffers();
+}
+
+protected override void OnUnload()
+{
+    _triangle.Dispose();          // deletes the GL program
+    GL.DeleteVertexArray(_emptyVao);
+    base.OnUnload();
+}
+```
+
+**Uniform setters.** The setters split into two groups:
+
+- **On `ShaderProgram` itself:** `SetFloat`, `SetUInt`, `SetVector2`, `SetInt`. They cache the uniform location, but they write to whichever program is bound, so call `Use()` first.
+- **Extensions** (`using GpuParticleSandbox;`): `SetVector3`, `SetMatrix4`, `SetFloatArray`, `SetUIntArray`, `SetVector2Array`, `HasUniform`. They bind the program themselves and look the location up on every call.
+
+A uniform the compiler optimised away has no location, and setting it does nothing. Use `HasUniform` if you need to check.
+
+`Matrix4` is row-major in OpenTK, and `SetMatrix4` uploads it without transposing. Compose matrices in C# in the order you'd write them left to right, `model * view * projection`, and multiply in GLSL as `uMvp * position`, as the vertex shader above does.
+
+**Disposing.** `Dispose()` deletes the GL program. It doesn't delete VAOs or buffers you created yourself, so delete those separately.
+
+### Swapping the particle shader
+
+`ParticleSystem` loads `particles.comp`, `particles.vert` and `particles.frag` from one directory, which `ParticleSystemBuilder.WithShaderDirectory` sets. `SandboxWindow` points it at `Shaders/`. To use different shaders:
+
+1. Copy the three files into a subfolder, for example `src/GpuParticleSandbox/Shaders/Custom/`. The csproj copies `Shaders\**\*`, so subfolders are included.
+2. Edit the copies. Keep the layout that the CPU side depends on:
+   - `particles.comp`: keep `local_size_x = 256`, which must match `ParticleSystem`'s `LocalSize`, and keep the `Particle` struct and its std430 padding (see `Particle.cs`).
+   - `particles.vert`: keep `layout(std430, binding = 0) buffer Particles` so it reads the same SSBO. If you change the `out` varyings, update the `in` declarations in `particles.frag` to match.
+   - `particles.frag`: `Render()` sets `uColorMode` with `SetInt`. If your fragment shader doesn't declare it, the call is ignored.
+3. In `SandboxWindow.InitializeAsync`, point the builder at the new folder:
+
+   ```csharp
+   _particles = new ParticleSystemBuilder()
+       .WithParticleCount(ParticleCount)
+       .WithShaderDirectory(Path.Combine(shaderDir, "Custom"))
+       .WithEmitterShape(ParticleSystem.EmitterShape.Point)
+       .WithColorMode(ColorMode.Velocity)
+       .Build();
+   ```
+
+Shaders are read once at startup, so restart the app after editing them. The `Shaders/` folder is copied on build, so `dotnet run` picks up the new files.
+
+### Measuring the effect with FpsCounter
+
+`SandboxWindow` owns a `FpsCounter` (`_fpsCounter`) and shows its `GetDisplayString()` in the window title. To measure a shader change, make a counter of your own:
+
+```csharp
+// Smoothing 1.0 makes each reading equal the last 1-second window
+private readonly FpsCounter _fps = new(1.0);
+
+protected override void OnRenderFrame(FrameEventArgs args)
+{
+    base.OnRenderFrame(args);
+    _fps.Tick();                       // once per frame
+
+    // ... update and draw the particles ...
+
+    Title = $"GPU Particle Sandbox - {_fps.GetDisplayString()}";
+}
+```
+
+`AverageFps` is in frames per second and `AverageFrameTimeMs` is in milliseconds. Both update once per second. The sandbox uses a smoothing factor of 0.1, which is fine for a title bar. For A/B comparisons, use 1.0, as above. With 0.1, a reading after `Reset()` climbs from 0 over roughly 20–30 seconds, so it's biased low for a long time.
+
+To compare two shaders:
+
+```csharp
+_fps.Reset();          // clear the averages; the next reading arrives after ~1 s
+// ... wait 2-3 seconds, with the same window and particle count ...
+double baselineMs = _fps.AverageFrameTimeMs;
+```
+
+Repeat the run with the other shader and compare `AverageFrameTimeMs`. Turn VSync off first by setting `VSync = VSyncMode.Off;` in the window constructor (`GameWindow.VSync`), or the frame rate caps at the monitor's refresh rate and the difference disappears. Note that the number includes the compute dispatch, so it measures the whole frame, not the fragment shader alone.
+
 ## License
 
 Do whatever. It's a toy.
