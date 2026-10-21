@@ -11,6 +11,46 @@
     <RootNamespace>GpuParticleSandbox</RootNamespace>
   </PropertyGroup>
 
+  <!--
+    Package metadata. Kept here so it is ready if the reusable parts (ParticleSystem,
+    ShaderProgram, FpsCounter) are split into a library project.
+  -->
+  <PropertyGroup>
+    <PackageId>GpuParticleSandbox</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Vladyslav Zaiets</Authors>
+    <Company>Sarmkadan</Company>
+    <Product>GPU Particle Sandbox</Product>
+    <Description>GPU-driven particle simulation in C# / .NET 8 and OpenTK. A compute shader integrates particles in an SSBO that the render pass reads directly, with no CPU round-trip per frame.</Description>
+    <PackageTags>opengl;gpu;particles;simulation</PackageTags>
+    <Copyright>Copyright (c) 2026 Vladyslav Zaiets</Copyright>
+    <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/Sarmkadan/gpu-particle-sandbox</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Sarmkadan/gpu-particle-sandbox.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <!--
+    Build reproducibility. Deterministic is the SDK default; set explicitly so it
+    cannot be turned off by accident. ContinuousIntegrationBuild maps source paths
+    to a stable prefix, but only on CI, because local debugging needs real paths.
+  -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true' Or '$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!--
+    Not packable: this project is an executable (OutputType=Exe) with one demo window
+    and one hardcoded emitter. The reusable parts are not separated into their own
+    assembly, so a .nupkg would only ship the demo. Split those files into a library
+    project, then remove this and make that project packable.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="OpenTK" Version="4.8.2" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
@@ -20,6 +60,10 @@
     <None Update="Shaders\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
