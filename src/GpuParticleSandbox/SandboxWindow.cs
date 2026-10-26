@@ -40,7 +40,7 @@ public sealed class SandboxWindow : GameWindow
     private bool _singleStepQueued = false;
     private float _simulationSpeed = 1.0f;
     private float _wellStrength = DefaultWellStrength;
-    private int _colorMode = 0;
+    private ColorMode _colorMode = ColorMode.Velocity;
     private FpsCounter _fpsCounter = new FpsCounter(FpsSmoothing);
     private readonly CancellationTokenSource _cts = new();
 
@@ -93,8 +93,9 @@ public sealed class SandboxWindow : GameWindow
 
         _keyPressActions[Keys.C] = () =>
         {
-            _colorMode = (_colorMode + 1) % 3;
-            _particles.SetColorMode(_colorMode);
+            _colorMode = _colorMode.Next();
+            _particles.SetColorMode((int)_colorMode);
+            Console.WriteLine($"Color mode: {_colorMode.DisplayName()}");
         };
 
         _keyPressActions[Keys.F5] = () => SavePreset(PresetFileName);
@@ -303,10 +304,10 @@ public sealed class SandboxWindow : GameWindow
 
     private void SavePreset(string filePath)
     {
-        _particles.SetColorMode(_colorMode);
+        _particles.SetColorMode((int)_colorMode);
         var preset = ParticlePreset.FromSystem(
             ParticleCount,
-            _colorMode,
+            (int)_colorMode,
             _particles.Shape,
             Vector2.Zero, // emitter params
             _simulationSpeed,
@@ -338,8 +339,11 @@ public sealed class SandboxWindow : GameWindow
 
             var preset = ParticlePreset.Load(presetPath);
 
-            _colorMode = preset.ColorMode;
-            _particles.SetColorMode(_colorMode);
+            // Unknown values from the file fall back to the default mode instead of reaching the shader.
+            _colorMode = Enum.IsDefined(typeof(ColorMode), preset.ColorMode)
+                ? (ColorMode)preset.ColorMode
+                : ColorMode.Velocity;
+            _particles.SetColorMode((int)_colorMode);
             _simulationSpeed = preset.SimulationSpeed;
             _wellStrength = Math.Clamp(preset.WellStrength, WellStrengthMin, WellStrengthMax);
             _isPaused = preset.IsPaused;
