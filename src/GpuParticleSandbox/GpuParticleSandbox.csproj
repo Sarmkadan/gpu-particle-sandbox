@@ -50,7 +50,7 @@
 
   <ItemGroup>
     <PackageReference Include="OpenTK" Version="4.8.2" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup>
