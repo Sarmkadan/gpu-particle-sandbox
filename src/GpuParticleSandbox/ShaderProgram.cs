@@ -60,7 +60,16 @@ public sealed class ShaderProgram : IDisposable
         fragSource = ShaderSourcePreprocessor.ProcessIncludes(fragSource, p => File.ReadAllText(p));
         
         int vs = Compile(ShaderType.VertexShader, vertSource);
-        int fs = Compile(ShaderType.FragmentShader, fragSource);
+        int fs;
+        try
+        {
+            fs = Compile(ShaderType.FragmentShader, fragSource);
+        }
+        catch
+        {
+            GL.DeleteShader(vs);
+            throw;
+        }
         int program = Link(vs, fs);
         return new ShaderProgram(program);
     }
@@ -83,7 +92,16 @@ public sealed class ShaderProgram : IDisposable
         string fragSource = await File.ReadAllTextAsync(fragmentPath, ct).ConfigureAwait(false);
         
         int vs = Compile(ShaderType.VertexShader, vertSource);
-        int fs = Compile(ShaderType.FragmentShader, fragSource);
+        int fs;
+        try
+        {
+            fs = Compile(ShaderType.FragmentShader, fragSource);
+        }
+        catch
+        {
+            GL.DeleteShader(vs);
+            throw;
+        }
         int program = Link(vs, fs);
         return new ShaderProgram(program);
     }
@@ -147,6 +165,7 @@ public sealed class ShaderProgram : IDisposable
         if (status == 0)
         {
             string log = GL.GetShaderInfoLog(shader);
+            GL.DeleteShader(shader);
             throw new InvalidOperationException($"{type} failed to compile:\n{log}");
         }
 
@@ -165,22 +184,23 @@ public sealed class ShaderProgram : IDisposable
 
         GL.LinkProgram(program);
         GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int status);
-        if (status == 0)
-        {
-            string log = GL.GetProgramInfoLog(program);
-            throw new InvalidOperationException($"Program link failed:\n{log}");
-        }
+        string log = GL.GetProgramInfoLog(program);
 
-        string warningLog = GL.GetProgramInfoLog(program);
-        if (!string.IsNullOrWhiteSpace(warningLog))
-            Console.Error.WriteLine($"[shader] Program link warning: {warningLog}");
-
-        // shaders can be detached/deleted once the program is linked
+        // shaders are no longer needed once linking is attempted, whether or not it succeeded
         foreach (int s in shaders)
         {
             GL.DetachShader(program, s);
             GL.DeleteShader(s);
         }
+
+        if (status == 0)
+        {
+            GL.DeleteProgram(program);
+            throw new InvalidOperationException($"Program link failed:\n{log}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(log))
+            Console.Error.WriteLine($"[shader] Program link warning: {log}");
 
         return program;
     }
