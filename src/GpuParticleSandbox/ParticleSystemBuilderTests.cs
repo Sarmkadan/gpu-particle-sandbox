@@ -13,6 +13,7 @@ public static class ParticleSystemBuilderTests
         if (!condition) throw new Exception($"Assertion failed: {message}");
     }
 
+    /// <summary>Checks that a fully specified builder chain runs without throwing.</summary>
     public static void TestValidConfigurationChain()
     {
         var builder = new ParticleSystemBuilder()
@@ -26,6 +27,7 @@ public static class ParticleSystemBuilderTests
         Assert(true, "Configuration chain executed successfully.");
     }
 
+    /// <summary>Checks that a zero particle count is rejected.</summary>
     public static void TestInvalidParticleCountZero()
     {
         var builder = new ParticleSystemBuilder();
@@ -40,6 +42,7 @@ public static class ParticleSystemBuilderTests
         }
     }
 
+    /// <summary>Checks that a negative particle count is rejected.</summary>
     public static void TestInvalidParticleCountNegative()
     {
         var builder = new ParticleSystemBuilder();
@@ -54,6 +57,7 @@ public static class ParticleSystemBuilderTests
         }
     }
 
+    /// <summary>Checks that a negative spawn rate is rejected.</summary>
     public static void TestNegativeSpawnRate()
     {
         var builder = new ParticleSystemBuilder();
@@ -68,6 +72,7 @@ public static class ParticleSystemBuilderTests
         }
     }
 
+    /// <summary>Checks that Build() rejects an invalid configuration.</summary>
     public static void TestBuildValidationThrows()
     {
         var builder = new ParticleSystemBuilder().WithParticleCount(0);
@@ -82,6 +87,7 @@ public static class ParticleSystemBuilderTests
         }
     }
 
+    /// <summary>Checks that Build() fails when the shader directory is missing.</summary>
     public static void TestMissingShaderDirectory()
     {
         var builder = new ParticleSystemBuilder().WithParticleCount(1000);

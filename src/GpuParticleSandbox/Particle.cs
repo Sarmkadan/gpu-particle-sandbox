@@ -11,12 +11,24 @@ namespace GpuParticleSandbox;
 [StructLayout(LayoutKind.Sequential, Pack = 4)]
 public struct Particle
 {
+    /// <summary>Particle position.</summary>
     public Vector2 Position;
+
+    /// <summary>Particle velocity.</summary>
     public Vector2 Velocity;
+
+    /// <summary>Remaining lifetime in seconds.</summary>
     public float Life;
+
+    /// <summary>std430 padding; keeps the struct at <see cref="SizeInBytes"/>.</summary>
     public float Pad0;
+
+    /// <summary>std430 padding; keeps the struct at <see cref="SizeInBytes"/>.</summary>
     public float Pad1;
+
+    /// <summary>std430 padding; keeps the struct at <see cref="SizeInBytes"/>.</summary>
     public float Pad2;
 
+    /// <summary>Size of one particle in the SSBO, in bytes.</summary>
     public const int SizeInBytes = 32;
 }

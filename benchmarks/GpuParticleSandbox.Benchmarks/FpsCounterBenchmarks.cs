@@ -9,7 +9,8 @@ namespace GpuParticleSandbox.Benchmarks;
 [MemoryDiagnoser]
 public class FpsCounterBenchmarks
 {
-    private FpsCounter _counter;
+    // Assigned in Setup(), which BenchmarkDotNet runs before any benchmark method.
+    private FpsCounter _counter = null!;
 
     [GlobalSetup]
     public void Setup()

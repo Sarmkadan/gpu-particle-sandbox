@@ -23,9 +23,16 @@ public sealed class ParticleSystem : IDisposable
     /// </summary>
     public enum EmitterShape
     {
+        /// <summary>All particles spawn at the origin.</summary>
         Point,
+
+        /// <summary>Particles spawn on a filled circle.</summary>
         Circle,
+
+        /// <summary>Particles spawn along the X axis between -1 and 1.</summary>
         Line,
+
+        /// <summary>Particles spawn on the circumference of a circle.</summary>
         Ring
     }
 
@@ -37,10 +44,21 @@ public sealed class ParticleSystem : IDisposable
     /// </summary>
     public readonly struct GravityWell
     {
+        /// <summary>World coordinates of the well's center.</summary>
         public readonly Vector2 Position;
+
+        /// <summary>Attraction force multiplier.</summary>
         public readonly float Strength;
+
+        /// <summary>Distance at which attraction starts; values below 0.01 are clamped up to 0.01.</summary>
         public readonly float Radius;
 
+        /// <summary>
+        /// Creates a gravity well.
+        /// </summary>
+        /// <param name="position">World coordinates of the well's center.</param>
+        /// <param name="strength">Attraction force multiplier.</param>
+        /// <param name="radius">Distance at which attraction starts.</param>
         public GravityWell(Vector2 position, float strength, float radius = 0.0f)
         {
             Position = position;
@@ -73,6 +91,14 @@ public sealed class ParticleSystem : IDisposable
     private static readonly Action<ILogger<ParticleSystem>, Exception?> _logDisposed =
         LoggerMessage.Define(LogLevel.Debug, new EventId(4, "Disposed"), "Particle system disposed");
 
+    /// <summary>
+    /// Creates the particle buffer and compiles the compute and render shaders.
+    /// Requires a current OpenGL 4.3 context.
+    /// </summary>
+    /// <param name="count">Number of particles; must be greater than zero.</param>
+    /// <param name="shaderDir">Directory containing particles.comp, .vert and .frag.</param>
+    /// <param name="shape">Emitter shape used to seed the initial particle positions.</param>
+    /// <param name="logger">Optional logger; a null logger is used when omitted.</param>
     public ParticleSystem(int count, string shaderDir, EmitterShape shape = EmitterShape.Point, ILogger<ParticleSystem>? logger = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
@@ -231,6 +257,12 @@ public sealed class ParticleSystem : IDisposable
         Update(deltaTime, new[] { new GravityWell(gravityWell, wellStrength, wellRadius) });
     }
 
+    /// <summary>
+    /// Applies gravity wells on the CPU: reads the particle buffer back from the GPU,
+    /// integrates it, and writes it back to the SSBO.
+    /// </summary>
+    /// <param name="deltaTime">Time step in seconds.</param>
+    /// <param name="wells">Gravity wells to apply. An empty list returns without changes.</param>
     public void UpdateCpu(float deltaTime, IReadOnlyList<GravityWell> wells)
     {
         ArgumentNullException.ThrowIfNull(wells);

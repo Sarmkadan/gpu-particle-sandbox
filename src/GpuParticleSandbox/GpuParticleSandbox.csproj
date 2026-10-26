@@ -3,8 +3,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AssemblyName>GpuParticleSandbox</AssemblyName>
@@ -32,12 +30,11 @@
   </PropertyGroup>
 
   <!--
-    Build reproducibility. Deterministic is the SDK default; set explicitly so it
-    cannot be turned off by accident. ContinuousIntegrationBuild maps source paths
-    to a stable prefix, but only on CI, because local debugging needs real paths.
+    Build reproducibility. Deterministic is set in Directory.Build.props.
+    ContinuousIntegrationBuild maps source paths to a stable prefix, but only on CI,
+    because local debugging needs real paths.
   -->
   <PropertyGroup>
-    <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true' Or '$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 

@@ -1,0 +1,17 @@
+<Project>
+
+  <!--
+    Shared build settings for every project in the repo. Individual .csproj files
+    only carry project-specific properties.
+  -->
+  <PropertyGroup>
+    <!-- Warnings fail the build so they cannot pile up unnoticed. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Deterministic is the SDK default; set explicitly so it cannot be turned off by accident. -->
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+</Project>
