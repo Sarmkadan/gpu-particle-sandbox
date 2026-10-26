@@ -15,7 +15,7 @@ jobs:
     # No GPU runner here, so nothing in this job creates an OpenGL context.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The solution's project targets net8.0 and there is no global.json, so pin the 8.0 SDK line.
       - uses: actions/setup-dotnet@v4
